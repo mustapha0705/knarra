@@ -1,0 +1,111 @@
+/*
+ * Design tokens transcribed from the Claude Design export.
+ *
+ * The export uses two related palettes: a lighter, greener one for the
+ * projects workspace ("Folder Workspace.dc.html") and a cooler, denser one
+ * for the editor ("ProjectEditor.dc.html"). Both are kept here verbatim so a
+ * value can be traced back to the source file it came from.
+ */
+
+:root {
+  --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* ---- Workspace palette ---- */
+  --ws-bg: #f8faf8;
+  --ws-surface: #ffffff;
+  --ws-surface-alt: #f3f6f4;
+  --ws-border: #dfe5e1;
+  --ws-border-strong: #c6d0ca;
+  --ws-divider: #edf0ee;
+
+  --ws-ink: #111713;
+  --ws-muted: #6f7974;
+  --ws-faint: #929a96;
+  --ws-icon: #557363;
+  --ws-icon-off: #8e9994;
+
+  --ws-brand: #062c22;
+  --ws-brand-hover: #0b3a2c;
+  --ws-brand-active: #052019;
+  --ws-brand-disabled: #9bb3a6;
+  --ws-brand-soft: #edf3ef;
+  --ws-brand-ring: #c9dcd1;
+
+  --ws-thumb: #eaf0ec;
+  --ws-thumb-deep: #e7eee9;
+  --ws-thumb-fallback: #e3eae5;
+  --ws-layer-back: #f2f6f3;
+  --ws-layer-mid: #fafcfb;
+  --ws-layer-border: #dfe7e2;
+  --ws-frame-border: #dde6e0;
+  --ws-frame-icon: #a7b8ad;
+
+  --ws-danger: #b42318;
+  --ws-scrim: rgba(11, 23, 19, 0.34);
+
+  --ws-shadow-card: 0 8px 20px rgba(6, 44, 34, 0.08);
+  --ws-shadow-menu: 0 14px 34px rgba(6, 44, 34, 0.16);
+  --ws-shadow-modal: 0 24px 60px rgba(6, 44, 34, 0.24);
+  --ws-shadow-toast: 0 10px 26px rgba(6, 44, 34, 0.13);
+
+  /* ---- Editor palette ---- */
+  --ed-bg: #fefdfe;
+  --ed-canvas: #fafaf9;
+  --ed-panel: #f7f7f7;
+  --ed-surface: #ffffff;
+  --ed-surface-alt: #fbfbfa;
+  --ed-hover: #f3f4f3;
+  --ed-track: #f4f5f4;
+
+  --ed-border: #e4e7e5;
+  --ed-border-input: #e1e3e2;
+  --ed-border-soft: #e9ebe9;
+  --ed-border-tick: #eaecea;
+  --ed-border-faint: #edefee;
+  --ed-rule: #e5e7e6;
+
+  --ed-ink: #1d1e1e;
+  --ed-ink-strong: #202421;
+  --ed-ink-soft: #343936;
+  --ed-muted: #4c5350;
+  --ed-muted-2: #6b7972;
+  --ed-faint: #8a8e8b;
+  --ed-disabled: #b9bebb;
+
+  --ed-accent: #526e5e;
+  --ed-accent-hover: #445c4e;
+  --ed-accent-dark: #3e5548;
+  --ed-accent-soft: #ecf1ed;
+  --ed-accent-muted: #c4ccc7;
+
+  --ed-dark: #0c241c;
+  --ed-dark-hover: #12352a;
+  --ed-stage: #141a17;
+  --ed-stage-text: #8a9791;
+
+  --ed-warn: #8c5c4c;
+  --ed-warn-bg: #f7f3f1;
+  --ed-warn-border: #e7dcd6;
+
+  --ed-node-bg: #eff0ef;
+  --ed-node-wave: #edf0ee;
+  --ed-folder-body: #526e5e;
+  --ed-folder-tab: #34453d;
+  --ed-grid-dot: #e7e9e7;
+
+  --ed-clip-video: #dce7e0;
+  --ed-clip-overlay: #edf1ee;
+  --ed-clip-audio: #e7eeea;
+  --ed-track-overlay: #fcfcfb;
+  --ed-clip-border: #cbd8d0;
+
+  --ed-scrim: rgba(24, 32, 28, 0.28);
+  --ed-chip-scrim: rgba(12, 36, 28, 0.82);
+
+  --ed-shadow-node: 0 2px 8px rgba(20, 28, 24, 0.05);
+  --ed-shadow-dock: 0 12px 30px rgba(20, 28, 24, 0.1);
+  --ed-shadow-pop: 0 14px 32px rgba(20, 28, 24, 0.13);
+  --ed-shadow-toast: 0 8px 22px rgba(20, 28, 24, 0.09);
+  --ed-shadow-bar: 0 6px 18px rgba(20, 28, 24, 0.07);
+  --ed-shadow-dialog: 0 20px 44px rgba(20, 28, 24, 0.18);
+}
