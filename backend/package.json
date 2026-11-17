@@ -7,17 +7,25 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
+    "dev": "nodemon --ext js,ts,json --exec tsx src/server.js",
+    "migrate": "tsx src/persistence/cli.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
     "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
     "express": "^5.2.1",
+    "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "dotenv": "^17.4.2",
+    "@electric-sql/pglite": "^0.5.16",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
     "nodemon": "^3.1.14",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

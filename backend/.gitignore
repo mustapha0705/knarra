@@ -10,3 +10,6 @@ ffmpeg-practice/*.m4a
 ffmpeg-practice/*.png
 ffmpeg-practice/*.jpg
 ffmpeg-practice/*.jpeg
+
+# Uploaded media, derived files, and exports (M5). Never commit.
+/storage/

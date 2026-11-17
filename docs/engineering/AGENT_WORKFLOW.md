@@ -77,7 +77,7 @@ Use only the commands defined in the Commands section of `CLAUDE.md`. Do not inv
 | Type-check | `npx tsc -p tsconfig.app.json --noEmit` and `npx tsc -p tsconfig.node.json --noEmit` |
 | Lint | `npm run lint` |
 | Production build | `npm run build` |
-| Tests | Not available yet; report as unavailable until a task adds a frontend test runner |
+| Tests | `npm test` (added by KNAR-302) |
 
 ## When to Parallelize
 

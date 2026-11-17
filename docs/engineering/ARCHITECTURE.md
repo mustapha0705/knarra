@@ -70,7 +70,7 @@ Changing an invariant requires a new ADR.
 
 ## Composition v1 Model
 
-All times are integer milliseconds (ADR 0005).
+All times are integer milliseconds (ADR 0005), from 0 to 24 hours.
 
 - `AssetRef` (the catalog the kernel validates against; not an upload record): `{ id, kind: 'image' | 'video' | 'audio', durationMs: int | null, width, height, hasAudio }`
 - Clips:
@@ -81,7 +81,7 @@ All times are integer milliseconds (ADR 0005).
   - `VisualTrack { id, kind: 'visual', clips: (ImageClip | VideoClip)[] }`: sequential; start times derive from array order.
   - `AudioTrack { id, kind: 'audio', clips: AudioClip[] }`
 - `Composition { schemaVersion: 1, id, presetId, tracks: [VisualTrack, AudioTrack] }`: exactly one track of each kind in v1.
-- `RenderPreset` `vertical-1080p30`: 1080x1920, 30 fps, H.264, `yuv420p`, `colorRange: 'tv'`, CRF, AAC 192k / 48 kHz / stereo.
+- `RenderPreset` `vertical-1080p30`: 1080x1920, 30 fps, H.264, `yuv420p`, `colorRange: 'tv'`, CRF 20, x264 preset `medium`, AAC 192k / 48 kHz / stereo.
 - `EditOperation` v1, discriminated on `op`: `appendClip`, `insertClip { index }`, `removeClip { clipId }`, `moveClip { clipId, toIndex }`, `trimClip { clipId, sourceStartMs, sourceEndMs }`, `setClipSpeed`, `setImageDuration`, `setClipVolume`, `setBackgroundAudio`. `splitClip` is deferred.
 
 Semantic rules (each issue has a stable `code`, a `path`, and a `message`):
@@ -92,10 +92,12 @@ Semantic rules (each issue has a stable `code`, a `path`, and a `message`):
 - Speed is between 0.25 and 4.
 - Video `durationMs = round((sourceEndMs − sourceStartMs) / speed)`, within ±1 ms.
 - Image duration is between 100 ms and 60 s.
+- Video clip duration is at least 100 ms.
 - Volume is between 0 and 1.
 - Audio clips do not overlap.
 - Total visual duration is greater than 0.
-- Fades are no longer than their clip.
+- Fades are no longer than their clip, separately and together.
+- A referenced video or audio asset has a known duration; a referenced image or video asset has known dimensions.
 
 Entry points:
 
@@ -103,9 +105,92 @@ Entry points:
 - `validateComposition(composition, assets)`
 - `applyOperations(composition, ops, assets)`: pure and atomic; validates ops, applies to a copy, re-validates, returns `Result<Composition, Issue[]>`.
 
+### Render Plan (M2)
+
+`compileRenderPlan(composition, assets, preset)` in `backend/src/render/compiler` returns `Result<RenderPlan, Issue[]>`. It validates the Composition first and compiles nothing if it is invalid.
+
+- `RenderAsset` is an `AssetRef` plus a server-resolved absolute `path`. Paths that are empty, relative, or could be read by FFmpeg as an option or protocol are rejected.
+- `RenderPlan { inputs, filterGraph, outputArgs, expectedDurationMs, diagnostics }`. `buildFfmpegArgs(plan, outputPath)` produces the argument array for `spawn`.
+- One input per visual clip in track order, then one per audible background clip. Paths appear only as argument-array elements; the filtergraph refers to inputs by index.
+- Each visual clip is scaled and padded to the preset size, converted to limited range (`out_range=tv`), BT.709 color, and `yuv420p`, set to the preset frame rate, and cut to its exact duration; the clips are then concatenated. The output is tagged `tv` and `bt709` explicitly.
+- Audio: a video clip's own audio is mixed with the background track, scaled by the clip's volume (ADR 0009). Every audio source is resampled to the preset format and placed on the timeline. The output always has exactly one audio stream of the video's length; silence is generated when nothing is audible.
+
+### Media Execution (M3)
+
+`backend/src/media` is the only module that starts FFmpeg or ffprobe.
+
+- `runProcess(command, args, options)`: `spawn` with an argument array and `shell: false`; supports `AbortSignal`, a timeout, line-by-line stdout, and a bounded stderr tail. It settles only after the process has closed.
+- `executeRenderPlan(plan, outputPath, { signal, onProgress })`: runs a plan with `-progress pipe:1`. If the render fails or is cancelled it deletes the partial output, so a file at `outputPath` always means a completed render.
+- `createProgressParser`: turns FFmpeg's progress blocks into `{ outTimeMs, ratio, frame, done }`; `ratio` never decreases and reaches 1 only at the end.
+- `probeMedia(path)`: runs ffprobe and returns a validated `MediaProbe` (format, duration, video codec/size/pixel format/color range/color space/frame rate, audio codec/sample rate/channels). Cover art embedded in audio files is not treated as video.
+- `ProcessError.stderr` can contain file paths. It is for server logs and must not be returned to a client.
+
+### Project Persistence (M4)
+
+Decision record: ADR 0010. PostgreSQL, reached through `DATABASE_URL`.
+
+**Layers**
+
+- `backend/src/persistence/db.ts`: a narrow `Database` interface (`query`, `exec`, `transaction`) over a `pg` pool. Values always travel as query parameters.
+- `backend/src/persistence/migrate.ts` and `migrations/NNNN_name.sql`: migrations run in name order, once, each in a transaction with the record that it ran. An applied migration is never edited.
+- `backend/src/persistence/projectRepository.ts`: all SQL for projects and versions. It stores and returns data and makes no validity decisions.
+- `backend/src/projects/service.ts`: the rules. Routes call the service; the service calls the repository.
+- `backend/src/api/projects.ts`: thin routes at `/api/projects`.
+
+**Tables** (`0001_initial.sql`)
+
+| Table | Holds |
+| --- | --- |
+| `projects` | Title, `revision`, `schema_version`, `composition` (jsonb), `editor_state` (jsonb, Canvas and other editor-only state) |
+| `assets` | Per project: kind, display name, duration, dimensions, `has_audio`, and `verified` (false while the metadata is only the browser's claim; true once the server has probed the stored file, from M5) |
+| `project_versions` | Immutable snapshots: composition, editor state, and the asset catalog as they were, with a per-project `version_number`. A trigger rejects every `UPDATE` |
+| `render_jobs` | Bound to a `project_version_id`. Created now; its lifecycle is defined in M6 |
+
+**Rules**
+
+- A new project gets a server-generated ID and an empty, structurally valid Composition whose `id` is the project ID.
+- **Save** (`PUT /api/projects/:id`) must carry `expectedRevision`. The write is `UPDATE ... WHERE id = $1 AND revision = $2`, so of two saves based on the same revision exactly one succeeds; the other gets 409 with `currentRevision` and writes nothing.
+- A save checks structure only (`parseComposition`, asset shapes, size limits). A project being edited may be incomplete, for example an empty timeline.
+- **Version** (`POST /api/projects/:id/versions`) additionally requires `validateComposition` to pass against the project's assets, because versions are what render jobs bind to (invariant 10).
+- Reading a project also goes through `parseComposition`, so data stored under an older schema version is migrated on the way out.
+- The client cannot set `verified`, cannot choose a project ID, and cannot send unknown fields.
+- `editor_state` is opaque to the backend, limited to 2 MB, and is never read by the renderer (invariant 1).
+- Without `DATABASE_URL`, or if the database is unreachable, the server still starts and `/api/projects` answers 503.
+
+| Request | Purpose |
+| --- | --- |
+| `GET /api/projects` | List project summaries, most recently updated first |
+| `POST /api/projects` | `{ title }` creates a project |
+| `GET /api/projects/:id` | Open a project |
+| `PUT /api/projects/:id` | `{ expectedRevision, title, composition, editorState, assets }` saves it |
+| `DELETE /api/projects/:id` | Delete a project and everything it owns |
+| `GET /api/projects/:id/versions` | List versions |
+| `POST /api/projects/:id/versions` | `{ expectedRevision?, label? }` creates an immutable version |
+| `GET /api/projects/:id/versions/:versionId` | Read a version |
+
+### Synchronous Export API (KNAR-302, temporary)
+
+`backend/src/api/exports.ts`, mounted at `/api/exports`. It exists because the backend has no stored media until M5. KNAR-502 replaces the uploads with stored assets and KNAR-602 replaces the synchronous render with jobs.
+
+| Request | Purpose |
+| --- | --- |
+| `POST /api/exports` | Create an export; returns `{ exportId }` (a server-generated UUID) |
+| `PUT /api/exports/:exportId/assets/:assetId` | Upload one file as the raw request body, streamed to disk |
+| `POST /api/exports/:exportId/render` | Body `{ composition }`; returns the MP4, or 422 with `issues` |
+| `DELETE /api/exports/:exportId` | Discard an export that was not rendered |
+
+- Each export has its own server-generated directory. Files are stored under server-generated names; the client sends no filename, and `assetId` must match the kernel ID format.
+- The server builds the asset catalog by probing the uploaded files. The client's idea of a file's kind, duration, or size is never used.
+- The Composition goes through `parseComposition`, then `compileRenderPlan` (which validates), then `executeRenderPlan`.
+- A source range that ends up to 500 ms after its file does is trimmed to the file's end with a `trimClip` operation, because browser-measured durations differ slightly from ffprobe's. Larger overshoots are reported.
+- One render runs at a time (409 otherwise). If the client disconnects, FFmpeg is stopped.
+- The export directory is deleted after the download, on any failure, on cancellation, and after an hour if never rendered.
+- Limits: 30 files per export, 1 GB per file.
+- Error responses carry issue codes, paths, and messages only. FFmpeg's stderr and server paths are logged, not returned.
+
 ### Frontend Mapping (staged: KNAR-302 to M7)
 
-The existing frontend is connected in stages (ADR 0008). The `toComposition` adapter introduced by KNAR-302 implements the clip and track rows; server asset records arrive with KNAR-502; the `Editor*` renames and routing every mutation through `EditOperation`s complete in M7.
+The existing frontend is connected in stages (ADR 0008). The `toComposition` adapter (`frontend/src/features/editor/composition.ts`, KNAR-302) implements the clip and track rows: clips on the Video and Images lanes are merged into one sequence ordered by timeline start, and a changed clip value wins over the asset's slider value; server asset records arrive with KNAR-502; the `Editor*` renames and routing every mutation through `EditOperation`s complete in M7.
 
 | Frontend today | Composition v1 |
 | --- | --- |
@@ -164,6 +249,27 @@ storage/
 ```
 
 All paths are generated on the server from IDs. Uploaded filenames are kept only as display metadata.
+
+Implemented by `backend/src/storage/localStorage.ts` (M5). The root is `KNARRA_STORAGE_DIR`, default `backend/storage/` (gitignored). Originals are written to a temporary name, renamed when complete, and made read-only; an existing original is never overwritten. Only `thumbnail.jpg` and `proxy.mp4` may exist under `derived/<assetId>/`.
+
+### Asset Ingestion (M5)
+
+`/api/projects/:projectId/assets`:
+
+| Request | Purpose |
+| --- | --- |
+| `GET /` | List the project's uploaded assets with derivative states |
+| `POST /` | Upload; raw body, display name in the URI-encoded `X-File-Name` header; 201 |
+| `GET /:assetId` | One asset |
+| `POST /:assetId/derivatives` | Regenerate thumbnail and proxy; 202 |
+| `GET /:assetId/thumbnail`, `GET /:assetId/proxy` | The derived file, once ready |
+| `DELETE /:assetId` | Delete record, original, and derived files |
+
+- Order of an upload: stream to storage (size limit, SHA-256), probe the stored file, then insert the row. Any failure removes the file, so there is never a record without an original and never an orphan file.
+- Kind, duration, dimensions, and audio presence come from ffprobe; the client's claims are not used. Such rows are `verified = true`. A project save never deletes or overwrites a verified asset.
+- Derivatives: images get a thumbnail; videos get a thumbnail and a 960-px H.264/AAC proxy; audio gets none. `asset_derivatives` has one row per asset and kind, so regeneration updates in place. Generation runs in the background; concurrent requests for one asset share a run. Failures record a short code, never a path or stderr.
+- There is no route that serves an original. Final renders read originals; the editor uses proxies (invariant 8).
+- Deleting a project removes its uploaded files after its rows are gone.
 
 ## Security Boundaries
 

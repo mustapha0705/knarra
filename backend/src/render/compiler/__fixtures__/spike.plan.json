@@ -1,0 +1,83 @@
+{
+  "inputs": [
+    {
+      "assetId": "asset-pic",
+      "path": "/srv/knarra/storage/originals/asset-pic/original",
+      "args": [
+        "-loop",
+        "1",
+        "-framerate",
+        "30",
+        "-t",
+        "3.000"
+      ]
+    },
+    {
+      "assetId": "asset-vid",
+      "path": "/srv/knarra/storage/originals/asset-vid/original",
+      "args": [
+        "-ss",
+        "0.000",
+        "-t",
+        "5.000"
+      ]
+    },
+    {
+      "assetId": "asset-aud",
+      "path": "/srv/knarra/storage/originals/asset-aud/original",
+      "args": [
+        "-ss",
+        "0.000",
+        "-t",
+        "8.000"
+      ]
+    }
+  ],
+  "filterGraph": "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease:in_range=auto:out_range=tv:out_color_matrix=bt709,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30,tpad=stop_mode=clone:stop=-1,trim=end_frame=90,setpts=PTS-STARTPTS,format=yuv420p[v0];[1:v]trim=duration=5.000,setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=decrease:in_range=auto:out_range=tv:out_color_matrix=bt709,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30,tpad=stop_mode=clone:stop=-1,trim=end_frame=150,setpts=PTS-STARTPTS,format=yuv420p[v1];[v0][v1]concat=n=2:v=1:a=0[vout];[2:a]atrim=duration=8.000,asetpts=PTS-STARTPTS,volume=1,afade=t=out:st=6.000:d=2.000,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asetpts=N/SR/TB[a0];[a0]apad,atrim=duration=8.000[aout]",
+  "outputArgs": [
+    "-map",
+    "[vout]",
+    "-map",
+    "[aout]",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "medium",
+    "-crf",
+    "20",
+    "-pix_fmt",
+    "yuv420p",
+    "-color_range",
+    "tv",
+    "-colorspace",
+    "bt709",
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "bt709",
+    "-r",
+    "30",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "192k",
+    "-ar",
+    "48000",
+    "-ac",
+    "2",
+    "-t",
+    "8.000",
+    "-movflags",
+    "+faststart"
+  ],
+  "expectedDurationMs": 8000,
+  "diagnostics": {
+    "presetId": "vertical-1080p30",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "visualClipCount": 2,
+    "inputCount": 3,
+    "audioSourceCount": 1
+  }
+}

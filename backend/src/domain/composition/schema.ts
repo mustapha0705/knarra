@@ -22,8 +22,11 @@ export const idSchema = z
     "Must be 1 to 64 characters: letters, digits, '_' or '-', starting with a letter or digit",
   );
 
+/** No time or duration may exceed 24 hours. Keeps all time arithmetic exact. */
+export const MAX_TIME_MS = 24 * 60 * 60 * 1000;
+
 /** A point in time or a duration: a non-negative integer of milliseconds. */
-export const timeMsSchema = z.int().nonnegative();
+export const timeMsSchema = z.int().nonnegative().max(MAX_TIME_MS);
 
 const positiveIntSchema = z.int().positive();
 
@@ -110,8 +113,9 @@ export const renderPresetSchema = z.strictObject({
   pixelFormat: z.literal("yuv420p"),
   colorRange: z.literal("tv"),
   crf: z.int().min(0).max(51),
+  encoderPreset: z.enum(["veryfast", "faster", "fast", "medium", "slow"]),
   audioCodec: z.literal("aac"),
   audioBitrateKbps: positiveIntSchema,
   audioSampleRateHz: positiveIntSchema,
-  audioChannels: positiveIntSchema,
+  audioChannels: z.union([z.literal(1), z.literal(2)]),
 });

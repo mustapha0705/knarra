@@ -1,6 +1,6 @@
 # Tasks
 
-Work one task at a time. A task is done only when its completion evidence matches its acceptance criteria and the learning-log entry exists. M2–M9 tasks, including the frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602), are headlines; expand them into full entries at the start of their milestone. Every task follows the completion sequence in `AGENT_WORKFLOW.md`.
+Work one task at a time. A task is done only when its completion evidence matches its acceptance criteria and the learning-log entry exists. M3–M9 tasks, including the frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602), are headlines; expand them into full entries at the start of their milestone. Every task follows the completion sequence in `AGENT_WORKFLOW.md`.
 
 Statuses: `ready | in-progress | blocked | review | done | planned`.
 
@@ -14,16 +14,16 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-003 | done | M0 | Add staged frontend integration checkpoints | KNAR-002 |
 | KNAR-101 | done | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
 | KNAR-102 | done | M1 | Structural Composition schemas v1 | KNAR-101 |
-| KNAR-103 | ready | M1 | Semantic Composition validation | KNAR-102 |
-| KNAR-104 | ready | M1 | EditOperation v1 schema | KNAR-102 |
-| KNAR-105 | ready | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
-| KNAR-106 | ready | M1 | Schema version and migration boundary | KNAR-102 |
-| KNAR-201 | planned | M2 | Deterministic render compiler | M1 |
-| KNAR-301 | planned | M3 | FFmpeg executor and media probe | KNAR-201 |
-| KNAR-302 | planned | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
-| KNAR-401 | planned | M4 | Project persistence and versions | M1 |
+| KNAR-103 | done | M1 | Semantic Composition validation | KNAR-102 |
+| KNAR-104 | done | M1 | EditOperation v1 schema | KNAR-102 |
+| KNAR-105 | done | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
+| KNAR-106 | done | M1 | Schema version and migration boundary | KNAR-102 |
+| KNAR-201 | done | M2 | Deterministic render compiler | M1 |
+| KNAR-301 | done | M3 | FFmpeg executor and media probe | KNAR-201 |
+| KNAR-302 | review | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
+| KNAR-401 | review | M4 | Project persistence and versions | M1 |
 | KNAR-402 | planned | M4 | Project save and reopen integration (frontend checkpoint) | KNAR-401, KNAR-302 |
-| KNAR-501 | planned | M5 | Asset ingestion and proxies | KNAR-301, KNAR-401 |
+| KNAR-501 | review | M5 | Asset ingestion and proxies | KNAR-301, KNAR-401 |
 | KNAR-502 | planned | M5 | Asset ingestion and proxy integration (frontend checkpoint) | KNAR-501, KNAR-402 |
 | KNAR-601 | planned | M6 | Asynchronous render jobs | KNAR-301, KNAR-401 |
 | KNAR-602 | planned | M6 | Asynchronous Export experience (frontend checkpoint) | KNAR-601, KNAR-502 |
@@ -212,7 +212,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-103 — Semantic Composition validation
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-102
 - Owner/session: lead
@@ -223,11 +223,19 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: one passing and one failing case per rule; a composition with several problems reports all of them.
 - Verification commands: `cd backend && npm test -- validate`
 - Learning checkpoint: explain why validation needs the asset catalog and cannot be done by the schema alone.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `a59abde`):
+  - `npm run typecheck`: exit 0. `npm test -- validate`: 58 tests passed. `npm test`: 3 files, 102 tests passed.
+  - `validateComposition(composition, assets)` returns `Issue[]`, each with a stable `code`, a `path`, and a `message` that states the fix. It is pure; a test confirms the inputs are unchanged.
+  - Rule coverage, each with at least one passing and one failing test: unique IDs (`DUPLICATE_ID`, `ASSET_CATALOG_DUPLICATE_ID`), asset existence (`ASSET_NOT_FOUND`), kind match (`ASSET_KIND_MISMATCH`), source range (`SOURCE_RANGE_INVALID`, `SOURCE_RANGE_OUT_OF_BOUNDS`), speed 0.25–4 (`SPEED_OUT_OF_RANGE`), video duration within 1 ms (`DURATION_MISMATCH`), image duration 100 ms–60 s (`IMAGE_DURATION_OUT_OF_RANGE`), volume 0–1 (`VOLUME_OUT_OF_RANGE`), audio overlap (`AUDIO_CLIPS_OVERLAP`), non-empty visual track (`VISUAL_TRACK_EMPTY`), fades within the clip (`FADE_TOO_LONG`).
+  - A composition with eleven problems reports all eleven, in document order.
+  - Additions beyond the listed rules: `ASSET_METADATA_MISSING` when a referenced video or audio asset has no duration or a referenced image or video asset has no dimensions (needed to check ranges at all); fade-in plus fade-out together may not exceed the clip. `DURATION_MISMATCH` is checked only when the range and speed are themselves valid, to avoid a misleading second issue.
+  - Not checked here: whether `presetId` names a known preset (the signature takes no preset list; the render compiler receives the preset in M2).
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17, which replaced the manual-test and commit steps for that run.
 
 ### KNAR-104 — EditOperation v1 schema
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-102
 - Owner/session: lead
@@ -240,11 +248,19 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: one valid case per op; unknown op; extra keys; malicious ID strings.
 - Verification commands: `cd backend && npm test -- operations`
 - Learning checkpoint: explain how this schema enforces invariant 4 before any LLM exists.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `bf514d5`):
+  - `npm run typecheck`: exit 0. `npm test -- operations`: 55 tests passed. `npm test`: 4 files, 157 tests passed.
+  - `editOperationSchema` is a discriminated union on `op` with exactly the nine v1 operations; a test asserts the list and that `splitClip` is absent.
+  - Every operation has a valid case. Unknown `op` values (`splitClip`, `addTransition`, `runCommand`, empty, wrong case) fail at path `op`.
+  - Every operation rejects an extra key (`unrecognized_keys`), and nested clips reject `path`, `src`, and `url`.
+  - ID fields reuse the kernel ID schema; `../x`, `a;rm`, `$(x)`, `a/b`, a Windows path, a space, backticks, a pipe, and the empty string are rejected for `clipId`, new clip `id`, and `assetId`.
+  - Decisions made here: new video clips carry no `durationMs` (the reducer derives it); `removeClip` targets a clip on either track; `setBackgroundAudio` carries one audio clip or `null` to clear the track; a batch (`editOperationsSchema`) holds 1 to 200 operations.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
 
 ### KNAR-105 — Pure atomic operation reducer
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-103, KNAR-104
 - Owner/session: lead
@@ -259,11 +275,22 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: each op's effect; frozen-input test; failure midway leaves nothing applied; repeated `setClipSpeed`.
 - Verification commands: `cd backend && npm test -- reducer`
 - Learning checkpoint: explain why the frontend's current `setSpeed` compounds and how this reducer prevents it.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `3f494bf`):
+  - `npm run typecheck`: exit 0. `npm test -- reducer`: 48 tests passed. `npm test`: 5 files, 205 tests passed.
+  - `applyOperations(composition, operations, assets)` returns `Result<Composition, Issue[]>`. `operations` is typed `unknown` and parsed with `editOperationsSchema` inside the function, so callers cannot skip structural validation.
+  - Never mutates input: every test runs against a deep-frozen composition and asset list (a mutation would throw), one test also freezes the operations, and the result shares no clip objects with the input.
+  - All or nothing: a batch that fails at its second operation returns only `CLIP_NOT_FOUND` at `operations.1.clipId` and no composition; a batch whose final state is invalid returns only the validation issues.
+  - Re-validated: the final draft is passed to `validateComposition`; a test asserts every successful result validates cleanly, and nine cases show semantic issues from the result (duplicate ID, unknown asset, kind mismatch, range, speed, volume, image duration, fade, empty visual track) rejecting the batch.
+  - `setClipSpeed` sets the speed and recomputes `durationMs` from the source range: repeated in one batch, applied to its own output, and set back to 1 all give the expected clip; trim-then-speed equals speed-then-trim.
+  - Each operation's effect has a test, including the three insert positions and removal from either track.
+  - New issue codes: `CLIP_NOT_FOUND`, `INDEX_OUT_OF_RANGE`, `CLIP_KIND_NOT_SUPPORTED`, and `INVALID_STRUCTURE` for malformed operations, all with paths starting at `operations`.
+  - Decisions made here: application stops at the first operation that cannot be applied; only the final state is validated, so a batch may pass through an invalid intermediate state.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
 
 ### KNAR-106 — Schema version and migration boundary
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-102
 - Owner/session: lead
@@ -274,31 +301,235 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: current-version passthrough; missing version; future version; test-only migration.
 - Verification commands: `cd backend && npm test -- parse`
 - Learning checkpoint: explain why saved projects need a migration path before the first project is ever persisted.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `cc0eab0`):
+  - `npm run typecheck`: exit 0. `npm test -- parse`: 27 tests passed. `npm test`: 6 files, 232 tests passed.
+  - `parseComposition(unknown)` reads `schemaVersion`, runs registered migrations one version at a time up to the current version, then performs the strict parse, and returns `Result<Composition, Issue[]>`.
+  - Missing version: `SCHEMA_VERSION_MISSING`. Future version: `SCHEMA_VERSION_TOO_NEW`, with a message to update Knarra. Older version with no migration: `SCHEMA_VERSION_UNSUPPORTED`. Wrong type (`"1"`, `1.5`, `-1`, `null`, `true`, `NaN`, `{}`): `SCHEMA_VERSION_INVALID`. Tests assert the message text of each.
+  - Current-version passthrough returns the spike composition unchanged and runs no migration.
+  - Registry proven with a synthetic, test-only v0 to v1 migration (separate `visualTrack`/`audioTrack` fields and `preset` renamed): migrated data parses to the spike composition; migrated data still gets the strict parse; a migration that does not advance the version or that throws is reported as `MIGRATION_FAILED` instead of throwing; the migration receives a copy, so the frozen input is untouched.
+  - The production registry `COMPOSITION_MIGRATIONS` is empty, asserted by a test, because version 1 is the only version ever stored.
+  - Kernel boundary re-checked: kernel modules import only `zod` and sibling modules.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
 
 ---
 
-## M2–M9: Headline Tasks
+## M2: Deterministic Render Compiler
+
+Branch `feat/render-compiler`, stacked on `feat/composition-kernel`. Code lives in `backend/src/render/compiler/` and imports only the Composition kernel: no file access and no processes.
+
+### KNAR-201 — Deterministic render compiler
+
+- Status: done
+- Milestone: M2
+- Depends on: M1 (KNAR-101 to KNAR-106)
+- Owner/session: lead
+- Intended files: `backend/src/render/compiler/{compile.ts,types.ts,index.ts,compile.test.ts}`, `backend/src/render/compiler/__fixtures__/spike.plan.json`, `backend/src/domain/composition/{schema.ts,presets.ts,issues.ts}` (encoder settings on `RenderPreset`, compiler issue codes), `docs/decisions/0009-video-clip-audio.md`, `docs/engineering/ARCHITECTURE.md`
+- Goal: `compileRenderPlan(composition, assets, preset)` returns a `RenderPlan` (resolved inputs, filtergraph, output arguments, expected duration, safe diagnostics) or issues, as a pure function.
+- Non-goals: running FFmpeg, probing media, writing files, progress, cancellation (M3); any API route; transitions or extra visual layers.
+- Acceptance criteria:
+  - The same input always gives an identical plan; inputs are not mutated.
+  - Golden tests cover the spike as Composition JSON, paths with spaces, image/video ordering, speed math, muted audio, limited-range color normalization, and validation failures.
+  - The plan emits limited-range `yuv420p` explicitly, with explicit CRF, encoder preset, sample rate, and channel count.
+  - Paths appear only as their own argument-array elements, never in the filtergraph; paths that FFmpeg could read as an option or a protocol are rejected.
+  - An ADR records how a video clip's own audio is handled.
+  - The compiler imports nothing outside the kernel.
+- Required tests: golden plan for the spike; argument order; path cases; ordering; speed and tempo cases; audio mixing, muting, and silence; color normalization; validation failures.
+- Verification commands: `cd backend && npm run typecheck && npm test -- compile`
+- Learning checkpoint: explain why the compiler is a pure function that returns arguments instead of running FFmpeg itself, and why paths never enter the filtergraph.
+- Completion evidence (2026-11-17, branch `feat/render-compiler`, against base `2cd0f3d`):
+  - `npm run typecheck`: exit 0. `npm test -- compile`: 50 tests passed. `npm test`: 7 files, 295 tests passed.
+  - Golden: the spike Composition compiles to exactly `__fixtures__/spike.plan.json`, and `buildFfmpegArgs` gives a fixed, fully asserted argument array. Compiling twice gives byte-identical JSON; deep-frozen inputs are not mutated.
+  - Paths: a path with spaces, quotes, `$`, backticks, `;`, and `&` is passed as one unmodified array element after `-i`; no path appears in the filtergraph. Empty, relative, option-like (`-i`), `concat:`, `http:`, and NUL-containing paths are rejected with `ASSET_PATH_INVALID`; an unsafe output path throws.
+  - Ordering: one input per visual clip in track order; the same asset used twice gets two inputs; a single-clip composition compiles.
+  - Speed math: source range becomes `-ss`/`-t`; `setpts` divides by the speed; speeds 0.25, 0.5, 1.5, and 4 give the expected clip lengths; clip audio is retimed with `atempo` stages kept between 0.5 and 2 (for example 0.25 becomes two 0.5 stages).
+  - Muted audio: a video clip with volume 0, or whose asset has no audio, uses no `[n:a]` stream; a background clip with volume 0 is skipped and its file is not opened; with nothing audible the plan generates silence.
+  - Color: every visual chain contains `in_range=auto:out_range=tv` and ends in `format=yuv420p`; output arguments set `-pix_fmt yuv420p -color_range tv`, plus explicit `-crf`, `-preset`, `-ar`, and `-ac`.
+  - Validation failures: an invalid Composition, an empty visual track, a range past the asset's end, and a mismatched preset return issues and no plan.
+  - Real-render sanity check, done outside the test suite with the spike media: the spike plan rendered to H.264 1080x1920, `yuv420p`, `color_range=tv`, 30 fps, AAC 48 kHz stereo, duration 8.000000. This is the spike's `yuvj420p`/full-range defect fixed. Automated real-render tests belong to M3.
+  - Defect found by that real render and fixed here: with `atempo` followed by `adelay`, `amix` received timestamps running backwards and the mixed audio stream was 0.02 s long. Every audio source now ends with `asetpts=N/SR/TB`; the same render then gave 5.500000 s of audio, silent before the clip and audible during it.
+  - ADR 0009 records that a video clip's own audio is mixed, scaled by its volume.
+  - Boundary: `backend/src/render/compiler` imports only the kernel; no Node module.
+  - Kernel changes made for M2: `RenderPreset` gains `encoderPreset` and `audioChannels` is limited to 1 or 2; issue codes `PRESET_MISMATCH` and `ASSET_PATH_INVALID`.
+  - M1 review follow-up, included in this commit: an independent read-only review of the kernel found no high-severity defect and two medium ones, both fixed with tests. (1) A video clip could validate with a 0 ms duration; video clips must now last at least 100 ms (`VIDEO_DURATION_TOO_SHORT`). (2) `parseComposition` threw on very deeply nested, circular, or non-JSON input; it now returns `INVALID_STRUCTURE`, and no longer copies data that needs no migration. Also fixed: times are bounded to 24 hours so arithmetic stays exact, and `applyOperations` re-parses its result structurally, which rejects unknown keys on an unparsed input. Noted, not changed: issue messages can echo untrusted key names, so they must be escaped wherever they are displayed.
+  - Frontend checks omitted: nothing the frontend builds from or consumes changed.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
+
+---
+
+## M3: FFmpeg Executor and Media Probe
+
+Continues on branch `feat/render-compiler`. Code lives in `backend/src/media/`.
+
+### KNAR-301 — FFmpeg executor and media probe
+
+- Status: done
+- Milestone: M3
+- Depends on: KNAR-201
+- Owner/session: lead
+- Intended files: `backend/src/media/{process.ts,probe.ts,progress.ts,executor.ts,index.ts}`, their unit tests, `backend/src/media/render.integration.test.ts`, `backend/src/domain/composition/boundary.test.ts`, `backend/vitest.config.ts`, `backend/vitest.integration.config.ts`, `backend/tsconfig.json`, `backend/package.json`, `backend/package-lock.json`, `backend/src/render/compiler/*` (fixes found by real renders), `CLAUDE.md` (Commands)
+- Goal: run a compiled `RenderPlan` with FFmpeg safely, report progress, support cancellation, clean up partial output, and read media properties with ffprobe.
+- Non-goals: HTTP routes, job queue, persistence, uploads, thumbnails or proxies; connecting the frontend (KNAR-302).
+- Approved dependencies: `@types/node` (development only; added under the overnight discretion grant of 2026-11-17).
+- Acceptance criteria:
+  - FFmpeg and ffprobe are started with `spawn` and an argument array, never through a shell.
+  - ffprobe JSON is parsed and validated into a typed result that includes pixel format, color range, and audio-stream presence.
+  - `-progress pipe:1` output is parsed into progress reports.
+  - An `AbortSignal` stops the process; a failed or cancelled render leaves no output file.
+  - Failures carry the exit code and a bounded tail of stderr.
+  - An integration test generates fixtures from FFmpeg test sources, compiles a known Composition, renders it, probes it, and verifies duration, dimensions, streams, codecs, frame rate, pixel format, and range.
+- Required tests: unit tests for the process runner, progress parser, and probe parser; integration tests for render, progress, failure, and cancellation.
+- Verification commands: `cd backend && npm run typecheck && npm test && npm run test:integration`
+- Learning checkpoint: explain why the process must have fully closed before the partial file is deleted, and why golden tests alone could not have found the defects the integration tests found.
+- Completion evidence (2026-11-17, branch `feat/render-compiler`, against base `274a7fe`):
+  - `npm run typecheck`: exit 0. `npm test`: 11 files, 333 tests passed. `npm run test:integration`: 14 tests passed in about 4 seconds.
+  - Process runner: `spawn` with an argument array and `shell: false`. A unit test passes `a b`, `$HOME`, backticks, `x;y`, `&&`, `|`, quotes, `*`, `%PATH%`, and `>out.txt` as arguments and reads them back unchanged. Exit failures carry the exit code and a bounded stderr tail; a missing program, an abort, a timeout, and oversized stdout each reject with their own failure kind.
+  - Probe: `parseProbeOutput` returns format, duration in integer milliseconds, video codec/size/pixel format/color range/color space/frame rate, and audio codec/sample rate/channels. Embedded cover art in an audio file is not reported as video. Invalid JSON and unexpected structures raise `ProbeError`; unsafe paths are refused before ffprobe starts.
+  - Progress: FFmpeg progress blocks become `{ outTimeMs, ratio, frame, done }`; the ratio never decreases, stays below 1 while running, and is exactly 1 on the end block; `N/A`, negative, and malformed lines are ignored.
+  - Integration (fixtures generated from `testsrc`, `testsrc2`, and `sine` into a temporary directory whose name contains spaces): a Composition of a 1 s image and a 2 s video range at 2x over music compiles, renders, and probes as MP4, duration 2000 ms within 50 ms, H.264 270x480 at 30/1 fps, `yuv420p`, `color_range=tv`, `color_space=bt709`, AAC 48 kHz stereo with an audio stream as long as the video. The source video probes as `yuvj420p`/`pc`, so the range conversion is exercised.
+  - Audio placement is measured, not assumed: the window containing the video clip's audio is louder than the music-only window; a composition with nothing audible renders silence below -80 dB.
+  - Failure: a missing input file rejects with the exit code and stderr, and no output file exists afterwards.
+  - Cancellation: a long 1080x1920 render is aborted on its first progress report; the output file existed while FFmpeg ran, the call rejects as a cancellation, and the file is gone afterwards. An already-aborted signal starts no process.
+  - Defect found by the integration tests and fixed in the compiler: the output carried no color-range tag at all for some sources, because the encoder writes the flag only when color information is present. The plan now converts to BT.709 (`out_color_matrix=bt709`) and tags range, matrix, primaries, and transfer explicitly. The golden plan fixture was regenerated for this change.
+  - Added `boundary.test.ts`, which fails if the kernel or the compiler imports anything outside their allowed modules or uses Node I/O globals.
+  - Dependency added under the overnight discretion grant: `@types/node` (development only). `tsconfig.json` now loads Node types; `npm test` excludes integration tests, which run with `npm run test:integration`.
+  - Frontend checks omitted: nothing the frontend builds from or consumes changed. `server.js` and the demo render endpoint are untouched.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
+  - Post-review fixes (2026-11-17, commit after `40b6aea`), from an independent review of `11092ad` that confirmed two high-severity defects by experiment: (1) a timeline of more than about 45–60 clips failed on Windows with `ENAMETOOLONG` because the whole filtergraph was on the command line; the executor now writes it to a file passed with `-/filter_complex`, and a synchronous `spawn` failure is now a `ProcessError("start")`. (2) Sound drifted from picture: each clip's length was rounded to whole frames on its own, so errors accumulated (10 ms per 1010 ms clip), and a video stream shorter than its file left the picture short. Picture and sound are now cut on shared whole-frame timeline boundaries, and the last frame is held if a stream runs short. Regression tests: a 150-clip render; 20 clips of 1010 ms followed by a tone that must start at 20.2 s; a 2 s picture in a 3 s file. Also: cleanup after a failed render no longer replaces the original error. `npm run test:all`: 442 unit and 73 integration tests pass.
+
+### KNAR-302 — Project-driven synchronous Export integration
+
+- Status: review
+- Milestone: M3 (frontend integration checkpoint)
+- Depends on: KNAR-201, KNAR-301
+- Owner/session: lead
+- Intended files: `backend/src/api/{exports.ts,exports.test.ts,exports.integration.test.ts}`, `backend/src/server.js` (mount the router), `backend/package.json` (dev script, type definitions), `frontend/src/features/editor/{composition.ts,composition.test.ts,exportProject.ts,ProjectEditor.tsx}`, `frontend/package.json` (test runner), `frontend/vite.config.ts` (comment), `CLAUDE.md` (Commands)
+- Goal: the existing Export control renders the project that is on the timeline, replacing the hard-coded render spike with the first project-driven render.
+- Non-goals: persistence, background jobs, progress streaming, cancellation controls in the UI, LLM planning, full migration of every editor mutation, any redesign of the editor UI.
+- Approved dependencies: `@types/express` (backend, development only) and `vitest` (frontend, development only), both added under the overnight discretion grant of 2026-11-17. No upload library: files are streamed with Node and Express alone.
+- Acceptance criteria:
+  - A `toComposition` adapter maps the existing editor state to a Composition.
+  - The Export control sends that Composition to the backend, which validates it structurally and semantically, compiles it, renders it synchronously, and returns the MP4, which the browser downloads.
+  - Media reaches the backend only for the length of one export, under server-generated names; uploaded filenames are never used as paths or FFmpeg arguments; the media is deleted when the render ends, fails, or is abandoned.
+  - Asset metadata is read from the files on the server, not taken from the client.
+  - An invalid project is rejected with an actionable message and never reaches FFmpeg.
+  - The approved UI is unchanged apart from the behavior of Export.
+- Required tests: adapter unit tests; API integration tests over real HTTP with real FFmpeg; frontend type-check, lint, tests, and build; Mustapha's manual browser test.
+- Verification commands: `cd backend && npm run typecheck && npm run test:all`; `cd frontend && npx tsc -p tsconfig.app.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && npm run lint && npm test && npm run build`
+- Learning checkpoint: explain why the server probes the uploaded files instead of trusting the browser's metadata, and why the browser never sends a filename.
+- Completion evidence (2026-11-17, branch `feat/render-compiler`, against base `572f6df`). Status is `review`, not `done`: every automated check passes, but the manual browser test has not been performed by anyone.
+  - Backend: `npm run typecheck` exit 0; `npm test` 12 files, 347 tests passed; `npm run test:integration` 2 files, 40 tests passed.
+  - Frontend: `npx tsc -p tsconfig.app.json --noEmit` and `-p tsconfig.node.json` exit 0; `npm run lint` 0 problems; `npm test` 20 tests passed; `npm run build` succeeded.
+  - Adapter (`toComposition`, 15 tests): Video and Images lanes merge into one sequence ordered by timeline start; a video clip's duration is recomputed from its range and speed; a changed clip value wins over the asset slider value; clips whose asset is missing or of the wrong kind are skipped and listed; the output contains no URLs, filenames, or canvas state; the project is not mutated.
+  - API over real HTTP with real FFmpeg (26 tests): upload three generated files, send a Composition, receive an MP4 that probes as H.264 270x480, `yuv420p`, `tv`, 30 fps, AAC 48 kHz stereo, 2000 ms; the export directory is gone afterwards.
+  - Untrusted input: stored names match `asset-<uuid>` only; asset IDs such as `..%2F..%2Fetc`, `a.b`, and `-x` are rejected with nothing written; unknown or malformed export IDs answer 404; a file over the limit answers 413 and is removed; a non-media file answers 422; a client that uploads audio into an image slot gets `ASSET_KIND_MISMATCH`, proving the kind comes from the file.
+  - Validation: speed 100 answers 422 with `SPEED_OUT_OF_RANGE` at `tracks.0.clips.1.speed`, with no server path in the body; a future schema version, an unknown key, an unknown preset, and a missing body all answer 422; a clip whose media was not uploaded gives `ASSET_NOT_FOUND`.
+  - Browser-measured durations: a range ending 40 ms past the file renders; one ending 1000 ms past it is rejected with `SOURCE_RANGE_OUT_OF_BOUNDS`.
+  - One render at a time: a second render answers 409 while the first runs; when the first client disconnects, FFmpeg stops and its directory is deleted; the second export then renders.
+  - Real server check performed by the agent with `curl` (not a browser): started `src/server.js` through `tsx`, uploaded the spike media, posted `spike.composition.json`, and received a 1080x1920 `yuv420p`/`tv` MP4 of 8.000000 s in about 5 s; `POST /api/demo-render` still answered 200; no export directory remained.
+  - Deviations from the headline: media is sent as one upload request per file before the render request, not inside a single request, so no multipart library was needed; `/api/demo-render` and `ffmpeg-practice/render.js` are left in place, unused by the frontend, until Mustapha confirms the new Export.
+  - `npm run dev` now runs the server through `tsx`. A dev server that was already running must be restarted once.
+  - Not done, by design: no persistence, jobs, progress UI, or cancel button; open CORS is unchanged (M6).
+  - Manual browser test: NOT performed. Checklist for Mustapha: (1) restart `npm run dev` in `backend/` and start the frontend; (2) import an image, a video, and an audio file; (3) add each to the timeline; (4) click Export and confirm an MP4 named after the project downloads and plays in the timeline order with the music; (5) drag a clip to reorder, export again, and confirm the order changed; (6) with an empty timeline, click Export and confirm the toast asks for a clip; (7) stop the backend, click Export, and confirm the failure toast.
+
+---
+
+## M4: Project Persistence and Versions
+
+Branch `feat/project-persistence`, stacked on `feat/render-compiler`. Code lives in `backend/src/persistence/`, `backend/src/projects/`, and `backend/src/api/projects.ts`.
+
+### KNAR-401 — Project persistence and versions
+
+- Status: review
+- Milestone: M4
+- Depends on: M1
+- Owner/session: lead
+- Intended files: `backend/src/persistence/{db.ts,migrate.ts,cli.ts,projectRepository.ts,persistence.test.ts}`, `backend/src/persistence/migrations/0001_initial.sql`, `backend/src/persistence/testing/pglite.ts`, `backend/src/projects/service.ts`, `backend/src/api/{projects.ts,projects.test.ts,errors.ts,exports.ts}`, `backend/src/server.js`, `backend/package.json`, `backend/package-lock.json`, `backend/.env.example`, `docs/decisions/0010-project-persistence-model.md`, `docs/engineering/ARCHITECTURE.md`, `CLAUDE.md` (Commands)
+- Goal: projects are stored in PostgreSQL and can be created, saved, reopened, versioned, and protected from a stale update.
+- Non-goals: uploads or media storage (M5); render-job behavior (M6; only its table is created); authentication or per-user ownership; connecting the frontend (KNAR-402).
+- Approved dependencies: `pg` (runtime), `@types/pg` and `@electric-sql/pglite` (development only), and `dotenv` moved to a runtime dependency; added under the overnight discretion grant of 2026-11-17.
+- Acceptance criteria:
+  - Migrations create tables for projects, assets, immutable project versions, and render jobs, and are applied in order, once, each in a transaction.
+  - Repository and service boundaries: SQL only in the repository; validation only in the service; routes contain neither.
+  - Save and reopen APIs exist.
+  - A save names the numeric revision it was based on; a save based on an older revision is refused and writes nothing.
+  - Versions are created explicitly and cannot be changed afterwards.
+  - Canvas and other editor state is stored separately from the Composition.
+  - Gate: a project can be saved, reopened, modified, versioned, and protected from a stale update.
+- Required tests: migration tests; repository tests including the stale-write test and concurrent saves; API tests for the gate, validation, and error responses.
+- Verification commands: `cd backend && npm run typecheck && npm run test:all`
+- Learning checkpoint: explain how the revision number prevents one editor from silently overwriting another, and why a version must be valid when a working save need not be.
+- Completion evidence (2026-11-17, branch `feat/project-persistence`, against base `11092ad`). Status is `review`, not `done`: all automated tests pass on an embedded PostgreSQL, but the connection to a real PostgreSQL server has not been exercised, because the local server requires a password the agent did not have and did not look for.
+  - `npm run typecheck`: exit 0. `npm test`: 14 files, 418 tests passed. `npm run test:integration`: 2 files, 40 tests passed.
+  - Migrations (5 tests): `0001_initial.sql` creates `projects`, `assets`, `project_versions`, `render_jobs`; a second run applies nothing; only new migrations run, in name order; a failing migration is rolled back completely and not recorded; a database with an unknown migration is refused.
+  - Repository (28 tests): create, read, list, delete with cascade; save stores composition, editor state, title, and ordered assets and bumps the revision; awkward text (quotes, `DROP TABLE`, backslashes, non-Latin text) round-trips as data.
+  - Stale-write protection: a save based on revision 1 after another save is refused with `currentRevision: 2` and changes nothing, including the asset list; of two concurrent saves from the same revision exactly one is saved.
+  - Versions: numbered 1, 2, ... per project; unchanged after later saves; a direct SQL `UPDATE` of a version fails with "project versions are immutable"; a snapshot of an outdated revision is refused; five concurrent snapshots get numbers 1 to 5.
+  - Constraints: a path-like project ID, an empty title, an unknown asset kind, a negative duration, an asset or render job with a missing parent, and an unknown job status are rejected by the database itself.
+  - API gate (37 tests, real HTTP): one test walks create, save, reopen (equal to what was saved), version, modify, version unchanged, stale save refused with 409 and nothing written, and list.
+  - Validation: a working save accepts an empty timeline and a not-yet-renderable composition; it rejects a structurally invalid composition, a future schema version, another project's composition, an asset with a path, an asset claiming `verified`, duplicate asset IDs, non-object editor state, and unknown fields, each with 422 and no write. A version of a project with an empty timeline is refused with `VISUAL_TRACK_EMPTY`.
+  - Error responses: malformed JSON answers 400 as JSON with no stack trace; an oversized body answers 413 as JSON; unknown routes answer 404 as JSON; without a database every route answers 503 naming `DATABASE_URL`.
+  - Server smoke test by the agent: started without `DATABASE_URL`; the log says project storage is disabled, `GET /` 200, `GET /api/projects` 503, `POST /api/exports` 201.
+  - Fix to KNAR-302 found here: the export and project routers are now mounted before the general body parser, whose 100 kB limit would otherwise have rejected a larger Composition before the router's own 2 MB limit applied; both routers now answer unknown routes and parser errors as JSON.
+  - Dependencies added under the overnight discretion grant: `pg` (runtime), `dotenv` (moved to runtime), `@types/pg` and `@electric-sql/pglite` (development). ADR 0010 records the persistence model and the choice to test on PGlite.
+  - Not verified: the `pg` pool adapter, and true multi-connection concurrency, against a PostgreSQL server. To verify: create an empty scratch database, set `TEST_DATABASE_URL`, and run `npm test -- persistence`; the same suite then runs on both engines.
+  - Not done, by design: no authentication or ownership; `assets` rows are client-reported and unverified until M5; `render_jobs` has no behavior until M6.
+  - Frontend checks omitted: no frontend file changed and the frontend does not call these routes yet (KNAR-402).
+  - Manual steps for Mustapha: (1) create a database, for example `createdb -U postgres knarra`; (2) copy `backend/.env.example` to `backend/.env` and set `DATABASE_URL`; (3) `npm run migrate` and confirm it reports `0001_initial.sql`; (4) set `TEST_DATABASE_URL` to an empty scratch database and run `npm test -- persistence`.
+
+---
+
+## M5: Asset Ingestion and Proxies
+
+Branch `feat/media-ingestion`, stacked on `feat/project-persistence`.
+
+### KNAR-501 — Asset ingestion and proxies
+
+- Status: review
+- Milestone: M5
+- Depends on: KNAR-301, KNAR-401
+- Owner/session: lead
+- Intended files: `backend/src/storage/{localStorage.ts,localStorage.test.ts}`, `backend/src/media/derive.ts`, `backend/src/persistence/{assetRepository.ts,projectRepository.ts,persistence.test.ts}`, `backend/src/persistence/migrations/0002_asset_ingestion.sql`, `backend/src/assets/service.ts`, `backend/src/api/{assets.ts,assets.integration.test.ts,projects.ts}`, `backend/src/server.js`, `backend/.gitignore`
+- Goal: uploads become immutable originals with server-read metadata, plus thumbnails and editing proxies, under a storage layout built only from IDs.
+- Non-goals: connecting the frontend (KNAR-502); using stored originals for Export (KNAR-602); cloud storage; analysis (M9).
+- Acceptance criteria:
+  - A local-filesystem storage adapter builds every path from IDs and fixed names and proves it stays under the root.
+  - Uploads are streamed to disk, size-limited, hashed, and stored read-only; a failed upload leaves no file and no record.
+  - Metadata is read from the stored file with ffprobe and persisted; the uploaded filename is display text only.
+  - Thumbnails (images, video) and proxies (video) are generated as derived artifacts with tracked state (`pending`, `ready`, `failed`).
+  - Gate: originals remain unchanged; regenerated proxies do not create duplicate asset records; filenames cannot escape the storage root.
+- Required tests: storage path-escape and failure tests; API tests over real HTTP with real FFmpeg for upload, classification, rejection, derivatives, regeneration idempotency, checksum, deletion.
+- Verification commands: `cd backend && npm run typecheck && npm run test:all`
+- Learning checkpoint: explain why the file is stored and probed before any database row exists, and why there is no route that serves an original.
+- Completion evidence (2026-11-17, branch `feat/media-ingestion`, against base `9498d18`). Status is `review`: all automated tests pass on an embedded PostgreSQL with real FFmpeg; like KNAR-401, it has not been run against a real PostgreSQL server or used from a browser.
+  - `npm run typecheck`: exit 0. `npm test`: 15 files, 441 tests passed. `npm run test:integration`: 3 files, 70 tests passed.
+  - Storage (23 tests): paths are built from IDs and fixed names only; IDs such as `..`, `../x`, `a\\b`, `C:\\x`, `/etc`, `.hidden`, and NUL-containing strings are refused by every operation; originals are stored read-only with size and SHA-256, never overwritten; too-large, empty, and broken uploads leave nothing behind; read-only originals can still be removed on Windows.
+  - Upload API (30 tests, real HTTP, real FFmpeg, embedded PostgreSQL): a 1920x1080 video with audio is recorded with duration 3000 ms, size, and hash read by the server; PNG and MP3 are classified from content; an audio file named `.mp4` is still audio; text, a shell script, an empty body, and an oversized file are rejected (415, 415, 400, 413) with no file and no record left.
+  - Gate, filenames: names such as `../../../../escape.png`, `C:\\Windows\\escape.png`, `/etc/passwd`, `$(rm -rf ~).png`, and one with a NUL byte are stored only as display text; no file outside the storage root is created; path-like project and asset IDs answer 404; there is no route that serves an original.
+  - Derivatives: a video gets a JPEG thumbnail no larger than 480 px and an H.264/AAC 960x540 proxy of the right length.
+  - Gate, idempotency and originals: after regenerating three times (two concurrently) there is still one asset row, two derivative rows, and two derived files; the original's SHA-256 still equals the uploaded bytes and the stored hash.
+  - Failure: when derived storage is unusable the asset survives and failure records contain no path or stderr.
+  - Deletion: deleting an asset, or its whole project, removes the original and derived files.
+  - Interaction with KNAR-401 found and fixed here: a project save replaced the whole asset list, which would have deleted uploaded assets and their derivatives. Saves now replace only browser-reported rows and cannot overwrite a verified asset's metadata (tested).
+  - Fix found here: `backend/.gitignore` ignores `/storage/` anchored, so it does not hide `src/storage/`.
+  - No new dependencies.
+  - Frontend checks omitted: no frontend file changed (KNAR-502 connects the editor).
+  - Manual steps for Mustapha: with `DATABASE_URL` set, upload a file with `curl -X POST -H "X-File-Name: test.mp4" --data-binary @some.mp4 http://localhost:3001/api/projects/<id>/assets`, then fetch `/assets/<assetId>/thumbnail` and `/proxy`, and confirm `backend/storage/` holds the original, thumbnail, and proxy.
+
+---
+
+## M3–M9: Headline Tasks
 
 Expand each into full task entries (and split as needed) at the start of its milestone.
 
 Frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602) connect the existing React frontend to the backend contract its milestone has just stabilized. Each is tested in the browser before the next milestone starts. They do not redesign the approved UI (ADR 0008).
 
-- **KNAR-201 (M2):** `compileRenderPlan` with golden tests: spike Composition, paths with spaces, image/video ordering, speed math, muted audio, limited-range color normalization, validation failures. ADR for a video clip's own audio.
-- **KNAR-301 (M3):** ffprobe adapter, `spawn` executor, progress parser, `AbortSignal` cancellation, partial-output cleanup, real tiny-render integration test with pixel-format and range assertions.
-- **KNAR-302 (M3, frontend checkpoint) — Project-driven synchronous Export integration.** Depends on KNAR-201 and KNAR-301. Replaces the hard-coded render spike with the first project-driven render:
-  - A `toComposition` adapter maps the existing editor state to a valid Composition.
-  - The existing Export control sends that Composition to the backend, which validates it structurally and semantically, compiles it, renders it synchronously, and returns the MP4 for download.
-  - Media: imported files exist only in the browser until M5, so the Export request carries the files the Composition references. The server stores them under server-generated temporary names, never uses the uploaded filenames as paths or FFmpeg arguments, and deletes them after the render. This is temporary and is replaced by KNAR-502. Any upload dependency is approved when this task is expanded.
-  - Out of scope: persistence, background jobs, progress streaming, cancellation, LLM planning, full migration of every editor mutation.
-- **KNAR-401 (M4):** PostgreSQL migrations, repositories, save/reopen API, numeric-revision stale-write protection, immutable versions.
 - **KNAR-402 (M4, frontend checkpoint) — Project save and reopen integration.** Depends on KNAR-401 and KNAR-302. The Dashboard and Editor first stop relying entirely on in-memory project data:
   - Dashboard project creation creates backend project records.
   - The current project and its Composition are saved.
   - A saved project reopens in the existing editor.
   - Revision and version behavior follows M4 (numeric-revision stale-write protection, explicit immutable versions).
   - Out of scope: uploaded media (KNAR-502), render jobs (KNAR-602).
-- **KNAR-501 (M5):** storage adapter, safe uploads, probe persistence, thumbnails and proxies, path-escape and idempotency tests.
 - **KNAR-502 (M5, frontend checkpoint) — Asset ingestion and proxy integration.** Depends on KNAR-501 and KNAR-402:
   - The existing media-import interface uploads to the backend.
   - The editor stores and uses backend asset identifiers.
