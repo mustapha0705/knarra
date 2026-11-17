@@ -73,11 +73,19 @@ export function runProcess(
       return;
     }
 
-    const child = spawn(command, [...args], {
-      shell: false,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    let child;
+    try {
+      child = spawn(command, [...args], {
+        shell: false,
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      // spawn throws synchronously for some failures, such as ENAMETOOLONG.
+      const reason = error instanceof Error ? error.message : String(error);
+      reject(new ProcessError("start", `Could not start ${command}: ${reason}`));
+      return;
+    }
 
     let stopReason: ProcessFailure | null = null;
     let stdout = "";

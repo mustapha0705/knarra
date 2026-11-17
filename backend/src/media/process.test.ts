@@ -74,6 +74,12 @@ describe("runProcess", () => {
     expect(error.failure).toBe("start");
   });
 
+  it("rejects with a ProcessError when the command line is too long to start", async () => {
+    const error = await failure(runProcess(node, ["-e", "0", "x".repeat(40_000)]));
+
+    expect(error.failure).toBe("start");
+  });
+
   it("kills the process and rejects when aborted", async () => {
     const controller = new AbortController();
     const started = Date.now();

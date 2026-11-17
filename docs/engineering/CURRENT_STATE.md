@@ -76,8 +76,8 @@ This document records what genuinely exists. Update it whenever a task changes w
 | `npx eslint .` (frontend) | Pass, 0 problems |
 | `npm run build` (frontend) | Not run during audit (writes `dist/`); a prior build exists |
 | `npm run typecheck` (backend, 2026-11-17) | Pass, 0 errors |
-| `npm test` (backend, 2026-11-17) | Pass, 441 tests |
-| `npm run test:integration` (backend, 2026-11-17) | Pass, 70 tests |
+| `npm test` (backend, 2026-11-17) | Pass, 442 tests |
+| `npm run test:integration` (backend, 2026-11-17) | Pass, 73 tests |
 | `npm test` (frontend, 2026-11-17) | Pass, 20 tests |
 | `npm run build` (frontend, 2026-11-17) | Pass |
 
@@ -88,6 +88,15 @@ This document records what genuinely exists. Update it whenever a task changes w
 3. **Output is tagged full range.** `knarra-demo.mp4` probes as `yuvj420p`, `color_range=pc`, despite `-pix_fmt yuv420p`. The source `vid.mp4` is full-range `yuvj420p`. `verify.js` checks neither pixel format nor range. (M2/M3)
 4. **Spike drops the video clip's own audio** (`concat ... a=0`); no `aresample`/channel normalization; libx264 defaults (no `-crf`/`-preset`). (M2 decision)
 5. **Open CORS and all-interface bind.** `cors()` with no options; `app.listen(PORT)` without host. Any page can trigger a CPU-heavy render. Acceptable only for local development. (M6, KNAR-601)
+7. **Open review findings for the export API and renderer** (medium/low, from the review of `11092ad`; not yet fixed):
+   - Export sessions are swept only when a new export starts, are not capped in number or total size, and are orphaned on restart (nothing empties the temp root at startup). Until KNAR-602.
+   - If a file is locked when an export directory is removed (Windows), the directory is never retried, and a 422 can become a 500.
+   - No render timeout and no cap on total timeline length; one long render can hold the single render slot.
+   - GIFs: a single-frame GIF fails with a 500 (`-loop` is not a gif-demuxer option); an animated GIF is classified as video while the frontend puts `.gif` on the Images lane. AVIF stills are classified as video with no duration.
+   - Expiry and `DELETE` do not wait for an upload in progress.
+   - `[n:v]` picks the first video stream even when it is cover art.
+   - One malformed stream (for example `width: 0`) makes the whole probe fail.
+   - Frontend: skipped clips are not reported to the user; audio-clip speed is ignored; uploads re-read each file into memory.
 6. **Config gaps.** `dotenv` installed but unused; only a `dev` script. Frontend tsconfig does not enable `strict`.
 
 ## Frontend Types vs. Planned Backend Domain

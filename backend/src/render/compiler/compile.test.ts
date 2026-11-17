@@ -229,7 +229,7 @@ describe("compileRenderPlan: image and video ordering", () => {
     });
 
     expect(chains(plan)).toEqual([
-      `[0:v]${NORMALIZE},trim=duration=3.000,setpts=PTS-STARTPTS,format=yuv420p[v0]`,
+      `[0:v]${NORMALIZE},tpad=stop_mode=clone:stop=-1,trim=end_frame=90,setpts=PTS-STARTPTS,format=yuv420p[v0]`,
       "[v0]concat=n=1:v=1:a=0[vout]",
       "anullsrc=channel_layout=stereo:sample_rate=48000,atrim=duration=3.000[aout]",
     ]);
@@ -249,16 +249,16 @@ describe("compileRenderPlan: speed math", () => {
 
     expect(plan.inputs[1]?.args).toEqual(["-ss", "12.500", "-t", "6.000"]);
     expect(chainEndingIn(plan, "v1")).toBe(
-      `[1:v]trim=duration=6.000,setpts=(PTS-STARTPTS)/2,${NORMALIZE},trim=duration=3.000,setpts=PTS-STARTPTS,format=yuv420p[v1]`,
+      `[1:v]trim=duration=6.000,setpts=(PTS-STARTPTS)/2,${NORMALIZE},tpad=stop_mode=clone:stop=-1,trim=end_frame=90,setpts=PTS-STARTPTS,format=yuv420p[v1]`,
     );
     expect(plan.expectedDurationMs).toBe(6000);
   });
 
   it.each([
-    [0.25, 20_000, "setpts=(PTS-STARTPTS)/0.25", "trim=duration=20.000"],
-    [0.5, 10_000, "setpts=(PTS-STARTPTS)/0.5", "trim=duration=10.000"],
-    [1.5, 3333, "setpts=(PTS-STARTPTS)/1.5", "trim=duration=3.333"],
-    [4, 1250, "setpts=(PTS-STARTPTS)/4", "trim=duration=1.250"],
+    [0.25, 20_000, "setpts=(PTS-STARTPTS)/0.25", "tpad=stop_mode=clone:stop=-1,trim=end_frame=600"],
+    [0.5, 10_000, "setpts=(PTS-STARTPTS)/0.5", "tpad=stop_mode=clone:stop=-1,trim=end_frame=300"],
+    [1.5, 3333, "setpts=(PTS-STARTPTS)/1.5", "tpad=stop_mode=clone:stop=-1,trim=end_frame=100"],
+    [4, 1250, "setpts=(PTS-STARTPTS)/4", "tpad=stop_mode=clone:stop=-1,trim=end_frame=38"],
   ])("speed %d gives a %d ms clip", (speed, durationMs, retime, cut) => {
     const chain = chainEndingIn(withSpeed(speed, durationMs), "v1");
 
@@ -284,7 +284,8 @@ describe("compileRenderPlan: speed math", () => {
 
     expect(chain).toBe(
       `[1:a]atrim=duration=5.000,asetpts=PTS-STARTPTS,${tempo}volume=1,${AUDIO_FORMAT},` +
-        `atrim=duration=${(durationMs / 1000).toFixed(3)},adelay=3000:all=1,asetpts=N/SR/TB[a0]`,
+        // Cut on whole-frame boundaries: the clip starts at frame 90 (3000 ms).
+        `atrim=duration=${((Math.round((Math.round(((3000 + durationMs) * 30) / 1000) * 1000) / 30) - 3000) / 1000).toFixed(3)},adelay=3000:all=1,asetpts=N/SR/TB[a0]`,
     );
   });
 });

@@ -256,6 +256,86 @@ describe("render variants", () => {
   });
 });
 
+describe("review findings (regressions)", () => {
+  it("renders a timeline of 150 clips, whose filtergraph is too long for a Windows command line", async () => {
+    const c = composition();
+    c.tracks[0].clips = Array.from({ length: 150 }, (_unused, index) => ({
+      id: `clip-many-${index}`,
+      kind: "image" as const,
+      assetId: "asset-image",
+      durationMs: 100,
+    }));
+    const compiled = plan(c);
+    expect(compiled.filterGraph.length).toBeGreaterThan(32_767);
+    const output = join(dir, "many clips.mp4");
+
+    await executeRenderPlan(compiled, output);
+
+    const probe = await probeMedia(output);
+    expect(Math.abs((probe.video?.durationMs ?? 0) - 15_000)).toBeLessThanOrEqual(50);
+    expect(existsSync(`${output}.filtergraph.txt`)).toBe(false);
+  });
+
+  it("keeps the sound of a late clip in sync with its picture", async () => {
+    // 20 clips of 1010 ms: each is 30.3 frames, so rounding each clip on its
+    // own would put the 21st clip 10 frames early relative to its sound.
+    const c = composition();
+    c.tracks[0].clips = [
+      ...Array.from({ length: 20 }, (_unused, index) => ({
+        id: `clip-still-${index}`,
+        kind: "image" as const,
+        assetId: "asset-image",
+        durationMs: 1010,
+      })),
+      {
+        id: "clip-tone",
+        kind: "video" as const,
+        assetId: "asset-video",
+        sourceStartMs: 0,
+        sourceEndMs: 1000,
+        speed: 1,
+        volume: 1,
+        durationMs: 1000,
+      },
+    ];
+    c.tracks[1].clips = [];
+    const output = join(dir, "drift.mp4");
+
+    await executeRenderPlan(plan(c), output);
+
+    const probe = await probeMedia(output);
+    expect(Math.abs((probe.video?.durationMs ?? 0) - 21_200)).toBeLessThanOrEqual(40);
+    expect(Math.abs((probe.audio?.durationMs ?? 0) - 21_200)).toBeLessThanOrEqual(60);
+    // Silent until the tone clip starts at 20.2 s, audible during it.
+    expect(await meanVolumeDb(output, 19.9, 20.15)).toBeLessThan(-60);
+    expect(await meanVolumeDb(output, 20.25, 21.1)).toBeGreaterThan(-40);
+  });
+
+  it("holds the last frame when a video stream is shorter than its file", async () => {
+    // 2 s of picture inside a 3 s file (the audio runs on).
+    const short = join(dir, "short video stream.mp4");
+    await ffmpeg([
+      "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=25:duration=2",
+      "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=44100:duration=3",
+      "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac",
+      short,
+    ]);
+    const shortAsset = await toAsset("asset-short", "video", short);
+    expect(shortAsset.durationMs).toBeGreaterThanOrEqual(2900);
+    const c = composition();
+    c.tracks[0].clips = [
+      { id: "clip-short", kind: "video", assetId: "asset-short", sourceStartMs: 0, sourceEndMs: 2900, speed: 1, volume: 0, durationMs: 2900 },
+      { id: "clip-after", kind: "image", assetId: "asset-image", durationMs: 1000 },
+    ];
+    const output = join(dir, "short stream.mp4");
+
+    await executeRenderPlan(plan(c, [...assets, shortAsset]), output);
+
+    const probe = await probeMedia(output);
+    expect(Math.abs((probe.video?.durationMs ?? 0) - 3900)).toBeLessThanOrEqual(40);
+  });
+});
+
 describe("failure and cancellation", () => {
   it("rejects and leaves no output when an input file is missing", async () => {
     const broken = assets.map((asset) =>

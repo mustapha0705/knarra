@@ -71,14 +71,27 @@ export function compileRenderPlan(
     `scale=${width}:${height}:force_original_aspect_ratio=decrease:in_range=auto:out_range=tv:out_color_matrix=${COLOR_STANDARD},` +
     `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps}`;
 
+  // Every clip boundary is rounded to a whole frame of the timeline, and both
+  // picture and sound are cut on those same boundaries. Rounding each clip's
+  // length on its own would let small errors add up until the sound drifts
+  // away from the picture.
+  const frameAt = (ms: number) => Math.round((ms * fps) / 1000);
+  const msAtFrame = (frame: number) => Math.round((frame * 1000) / fps);
+
   let timelineMs = 0;
   for (const clip of visualTrack.clips) {
     const asset = byId.get(clip.assetId)!;
     const inputIndex = inputs.length;
     const label = `v${videoLabels.length}`;
     const clipDuration = seconds(clip.durationMs);
-    // Cut again after fps conversion so every segment has its exact length.
-    const finish = `trim=duration=${clipDuration},setpts=PTS-STARTPTS,format=${preset.pixelFormat}`;
+    const startFrame = frameAt(timelineMs);
+    const frames = Math.max(1, frameAt(timelineMs + clip.durationMs) - startFrame);
+    const startMs = msAtFrame(startFrame);
+    const lengthMs = msAtFrame(startFrame + frames) - startMs;
+    // After fps conversion, repeat the last frame if the source runs short (a
+    // video stream can end before its container does), then cut to exactly
+    // `frames` frames.
+    const finish = `tpad=stop_mode=clone:stop=-1,trim=end_frame=${frames},setpts=PTS-STARTPTS,format=${preset.pixelFormat}`;
 
     if (clip.kind === "image") {
       inputs.push({
@@ -107,8 +120,8 @@ export function compileRenderPlan(
           ...tempoFilters(clip.speed),
           `volume=${number(clip.volume)}`,
           audioFormat,
-          `atrim=duration=${clipDuration}`,
-          ...delayFilter(timelineMs),
+          `atrim=duration=${seconds(lengthMs)}`,
+          ...delayFilter(startMs),
           CLEAN_TIMESTAMPS,
         ];
         chains.push(`[${inputIndex}:a]${steps.join(",")}[${audioLabel}]`);
@@ -214,15 +227,27 @@ export function compileRenderPlan(
  * The complete FFmpeg argument array for a plan. Pass it to `spawn("ffmpeg",
  * args)`; it must never be joined into a shell command (ADR 0002).
  */
-export function buildFfmpegArgs(plan: RenderPlan, outputPath: string): string[] {
+export function buildFfmpegArgs(
+  plan: RenderPlan,
+  outputPath: string,
+  options: { filterGraphFile?: string } = {},
+): string[] {
   if (!isSafeInputPath(outputPath)) {
     throw new TypeError("The output path must be a non-empty absolute path");
+  }
+  const { filterGraphFile } = options;
+  if (filterGraphFile !== undefined && !isSafeInputPath(filterGraphFile)) {
+    throw new TypeError("The filtergraph file must be a non-empty absolute path");
   }
   return [
     "-y",
     ...plan.inputs.flatMap((input) => [...input.args, "-i", input.path]),
-    "-filter_complex",
-    plan.filterGraph,
+    // A long timeline makes a long filtergraph. Windows limits a command line to
+    // 32,767 characters, so executors pass the graph in a file: `-/option file`
+    // makes FFmpeg read the option's value from that file.
+    ...(filterGraphFile === undefined
+      ? ["-filter_complex", plan.filterGraph]
+      : ["-/filter_complex", filterGraphFile]),
     ...plan.outputArgs,
     outputPath,
   ];
