@@ -14,7 +14,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-003 | done | M0 | Add staged frontend integration checkpoints | KNAR-002 |
 | KNAR-101 | done | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
 | KNAR-102 | done | M1 | Structural Composition schemas v1 | KNAR-101 |
-| KNAR-103 | ready | M1 | Semantic Composition validation | KNAR-102 |
+| KNAR-103 | done | M1 | Semantic Composition validation | KNAR-102 |
 | KNAR-104 | ready | M1 | EditOperation v1 schema | KNAR-102 |
 | KNAR-105 | ready | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
 | KNAR-106 | ready | M1 | Schema version and migration boundary | KNAR-102 |
@@ -212,7 +212,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-103 — Semantic Composition validation
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-102
 - Owner/session: lead
@@ -223,7 +223,15 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: one passing and one failing case per rule; a composition with several problems reports all of them.
 - Verification commands: `cd backend && npm test -- validate`
 - Learning checkpoint: explain why validation needs the asset catalog and cannot be done by the schema alone.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `a59abde`):
+  - `npm run typecheck`: exit 0. `npm test -- validate`: 58 tests passed. `npm test`: 3 files, 102 tests passed.
+  - `validateComposition(composition, assets)` returns `Issue[]`, each with a stable `code`, a `path`, and a `message` that states the fix. It is pure; a test confirms the inputs are unchanged.
+  - Rule coverage, each with at least one passing and one failing test: unique IDs (`DUPLICATE_ID`, `ASSET_CATALOG_DUPLICATE_ID`), asset existence (`ASSET_NOT_FOUND`), kind match (`ASSET_KIND_MISMATCH`), source range (`SOURCE_RANGE_INVALID`, `SOURCE_RANGE_OUT_OF_BOUNDS`), speed 0.25–4 (`SPEED_OUT_OF_RANGE`), video duration within 1 ms (`DURATION_MISMATCH`), image duration 100 ms–60 s (`IMAGE_DURATION_OUT_OF_RANGE`), volume 0–1 (`VOLUME_OUT_OF_RANGE`), audio overlap (`AUDIO_CLIPS_OVERLAP`), non-empty visual track (`VISUAL_TRACK_EMPTY`), fades within the clip (`FADE_TOO_LONG`).
+  - A composition with eleven problems reports all eleven, in document order.
+  - Additions beyond the listed rules: `ASSET_METADATA_MISSING` when a referenced video or audio asset has no duration or a referenced image or video asset has no dimensions (needed to check ranges at all); fade-in plus fade-out together may not exceed the clip. `DURATION_MISMATCH` is checked only when the range and speed are themselves valid, to avoid a misleading second issue.
+  - Not checked here: whether `presetId` names a known preset (the signature takes no preset list; the render compiler receives the preset in M2).
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17, which replaced the manual-test and commit steps for that run.
 
 ### KNAR-104 — EditOperation v1 schema
 

@@ -144,3 +144,28 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    I ran the manual checklist and confirmed it works.
+
+---
+
+## KNAR-103 — Semantic Composition validation (2026-11-17)
+
+1. **What problem does this layer solve?**
+   A Composition can have every field of the right type and still be nonsense: a clip that uses seconds 0–5 of a 2-second video, a speed of 100, two songs playing at once. The schema cannot see that. This layer checks the rules that compare fields with each other and with the asset catalog.
+
+2. **What inputs and outputs cross its boundary?**
+   Input: a structurally valid `Composition` and the list of `AssetRef`s. Output: a list of issues, empty when valid. Each issue has a stable `code` for programs, a `path` such as `tracks.0.clips.1.speed`, and a `message` that says what to change.
+
+3. **What invariant does it protect?**
+   Invariant 5: semantic validation runs before anything can modify project state. It also backs invariant 6, because the render compiler can assume ranges, speeds, and durations are consistent instead of defending against them.
+
+4. **What failure case did the test expose?**
+   Validation needs the asset catalog. Whether `sourceEndMs: 5000` is legal depends on the asset's real duration, which is not in the Composition, so the schema alone can never decide it. The tests also pin down that all problems are reported together (eleven in one composition), not just the first, and that a duration is not reported as wrong when the speed it derives from is already invalid.
+
+5. **How would I diagnose it without Claude?**
+   - Call `validateComposition(composition, assets)` and read each issue's `code` and `path`.
+   - Compare the clip at that path with the matching entry in the asset list (`durationMs`, `kind`).
+   - For a duration issue, compute `round((sourceEndMs - sourceStartMs) / speed)` by hand.
+   - `npm test -- validate` runs only these tests.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was completed overnight under my delegation and is waiting for my review.

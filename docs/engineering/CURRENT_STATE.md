@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-17 at commit `b2b0faa` plus the KNAR-102 changes (branch `feat/composition-kernel`).
+Last verified: 2026-11-17 at commit `a59abde` plus the KNAR-103 changes (branch `feat/composition-kernel`).
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -17,7 +17,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 
 - `frontend/`: React 19, TypeScript 6, Vite 8. Standalone npm project.
 - `backend/`: Express 5, JavaScript ESM (`"type": "module"`) with a TypeScript toolchain alongside it (TypeScript 7, Vitest 5, Zod 4, tsx; KNAR-101). Runtime code is still JavaScript. Standalone npm project.
-- `backend/src/domain/composition/` holds the Composition kernel. So far it has structural schemas, derived types, one preset, and fixtures (KNAR-102). Nothing imports it yet: not the server, not the frontend.
+- `backend/src/domain/composition/` holds the Composition kernel. So far it has structural schemas, derived types, one preset, fixtures (KNAR-102), and semantic validation (KNAR-103). Nothing imports it yet: not the server, not the frontend.
 - No root `package.json`, no workspaces, no shared types package, no root `.gitignore`.
 - `backend/src/{config,controllers,middleware,routes}` exist on disk but are empty and untracked.
 
@@ -37,7 +37,8 @@ This document records what genuinely exists. Update it whenever a task changes w
 | Demo render endpoint | `POST /api/demo-render`; global `rendering` flag (409 if busy); `res.download` of fixed MP4 | `backend/src/server.js:20-49` |
 | FFmpeg spike | `spawn('ffmpeg', args)` with argument array, no shell; trim/setpts, scale/pad 1080x1920, setsar, fps=30, format=yuv420p, concat, atrim/afade, AAC 192k, `+faststart` | `backend/ffmpeg-practice/render.js` (tracked; spike media is gitignored) |
 | Spike verification | ffprobe checks duration ±0.1 s and 1080x1920 | `backend/ffmpeg-practice/verify.js` (tracked) |
-| Composition v1 structural schemas | Strict Zod schemas for `AssetRef`, clips, tracks, `Composition` (`schemaVersion: 1`), `RenderPreset`; kernel ID format; `vertical-1080p30` preset; types via `z.infer`. Structure only: no semantic validation, operations, reducer, or migrations yet (KNAR-103 to KNAR-106) | `backend/src/domain/composition/{schema,types,presets,index}.ts`, `schema.test.ts` |
+| Composition v1 structural schemas | Strict Zod schemas for `AssetRef`, clips, tracks, `Composition` (`schemaVersion: 1`), `RenderPreset`; kernel ID format; `vertical-1080p30` preset; types via `z.infer`. No operations, reducer, or migrations yet (KNAR-104 to KNAR-106) | `backend/src/domain/composition/{schema,types,presets,index}.ts`, `schema.test.ts` |
+| Composition semantic validation | `validateComposition(composition, assets)` returns every issue with a stable `code`, `path`, and `message`: unique IDs, asset existence and kind, source ranges, speed, video duration, image duration, volume, audio overlap, non-empty visual track, fades | `backend/src/domain/composition/{validate,issues}.ts`, `validate.test.ts` |
 
 ## Stubbed or Mocked
 
@@ -52,7 +53,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 
 - Persistence: no database, migrations, project storage, uploads, or storage layout.
 - Server-side ffprobe, progress reporting, cancellation, job state, partial-output cleanup on success paths.
-- Tests: the backend has unit tests for the structural schemas only (44 tests). No integration tests or render fixtures. The frontend has no test runner.
+- Tests: the backend has unit tests for the kernel only (102 tests). No integration tests or render fixtures. The frontend has no test runner.
 - Runtime validation in product code: the kernel schemas exist, but no request, saved project, or edit passes through them yet.
 - Backend TypeScript source (toolchain only so far), `@types/node`, backend linting, CI, pre-commit hooks, Prettier, `.editorconfig`.
 - `.env.example`, configuration loading (port is hardcoded `3001`), structured logging.
@@ -67,7 +68,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 | `npx eslint .` (frontend) | Pass, 0 problems |
 | `npm run build` (frontend) | Not run during audit (writes `dist/`); a prior build exists |
 | `npm run typecheck` (backend, 2026-11-17) | Pass, 0 errors |
-| `npm test` (backend, 2026-11-17) | Pass, 44 tests |
+| `npm test` (backend, 2026-11-17) | Pass, 102 tests |
 
 ## Known Defects
 
