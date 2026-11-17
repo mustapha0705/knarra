@@ -1,4 +1,4 @@
-import { err, ok, type Issue, type IssuePath, type Result } from "./issues.js";
+import { err, ok, structuralIssues, type Issue, type IssuePath, type Result } from "./issues.js";
 import { editOperationsSchema, type EditOperation, type NewVisualClip } from "./operations.js";
 import type { AssetRef, AudioClip, Composition, VisualClip } from "./types.js";
 import { expectedVideoDurationMs, validateComposition } from "./validate.js";
@@ -24,13 +24,7 @@ export function applyOperations(
 ): Result<Composition, Issue[]> {
   const parsed = editOperationsSchema.safeParse(operations);
   if (!parsed.success) {
-    return err(
-      parsed.error.issues.map((issue) => ({
-        code: "INVALID_STRUCTURE" as const,
-        path: ["operations", ...toIssuePath(issue.path)],
-        message: issue.message,
-      })),
-    );
+    return err(structuralIssues(parsed.error.issues, ["operations"]));
   }
 
   const draft = deepCopy(composition);
@@ -191,10 +185,6 @@ function derivedDurationMs(clip: { sourceStartMs: number; sourceEndMs: number; s
 /** Compositions are plain JSON data, so a JSON round trip is a full copy. */
 function deepCopy<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function toIssuePath(path: readonly PropertyKey[]): IssuePath {
-  return path.map((segment) => (typeof segment === "number" ? segment : String(segment)));
 }
 
 function article(kind: "image" | "video" | "audio"): "a" | "an" {

@@ -218,3 +218,27 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
+
+---
+
+## KNAR-106 — Schema version and migration boundary (2026-11-17)
+
+1. **What problem does this layer solve?**
+   Saved projects outlive the code that wrote them. When the Composition shape changes, old saved data must either be upgraded or refused clearly. This task adds the one door through which stored Composition data enters: `parseComposition`.
+
+2. **What inputs and outputs cross its boundary?**
+   Input: `unknown` data, such as a row from the database or an uploaded project file. Output: a current-version `Composition`, or issues. The steps are fixed: read `schemaVersion`, run migrations (`0 -> 1`, `1 -> 2`, one step at a time), then the strict parse.
+
+3. **What invariant does it protect?**
+   Invariant 2, over time: the Composition stays the source of truth even after its format changes. It also supports invariant 9 (immutable project versions), because an old immutable snapshot can still be read later without rewriting it.
+
+4. **What failure case did the test expose?**
+   Why this is needed before the first project is ever saved: without a version check, data written by a newer Knarra would be read by an older one as "has unknown keys" and be reported as corrupt, or worse, partly accepted. The tests show a future version is refused with "Update Knarra" before its structure is even looked at, and that a migration which throws or forgets to raise the version becomes an issue instead of a crash.
+
+5. **How would I diagnose it without Claude?**
+   - Look at `schemaVersion` in the stored JSON first.
+   - Call `parseComposition(data)` and read the issue `code`: `SCHEMA_VERSION_*` is a version problem, `MIGRATION_FAILED` is a broken upgrade step, `INVALID_STRUCTURE` is the data itself.
+   - `npm test -- parse` runs only these tests.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was completed overnight under my delegation and is waiting for my review.

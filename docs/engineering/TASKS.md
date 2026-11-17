@@ -17,7 +17,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-103 | done | M1 | Semantic Composition validation | KNAR-102 |
 | KNAR-104 | done | M1 | EditOperation v1 schema | KNAR-102 |
 | KNAR-105 | done | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
-| KNAR-106 | ready | M1 | Schema version and migration boundary | KNAR-102 |
+| KNAR-106 | done | M1 | Schema version and migration boundary | KNAR-102 |
 | KNAR-201 | planned | M2 | Deterministic render compiler | M1 |
 | KNAR-301 | planned | M3 | FFmpeg executor and media probe | KNAR-201 |
 | KNAR-302 | planned | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
@@ -290,7 +290,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-106 — Schema version and migration boundary
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-102
 - Owner/session: lead
@@ -301,7 +301,16 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: current-version passthrough; missing version; future version; test-only migration.
 - Verification commands: `cd backend && npm test -- parse`
 - Learning checkpoint: explain why saved projects need a migration path before the first project is ever persisted.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `cc0eab0`):
+  - `npm run typecheck`: exit 0. `npm test -- parse`: 27 tests passed. `npm test`: 6 files, 232 tests passed.
+  - `parseComposition(unknown)` reads `schemaVersion`, runs registered migrations one version at a time up to the current version, then performs the strict parse, and returns `Result<Composition, Issue[]>`.
+  - Missing version: `SCHEMA_VERSION_MISSING`. Future version: `SCHEMA_VERSION_TOO_NEW`, with a message to update Knarra. Older version with no migration: `SCHEMA_VERSION_UNSUPPORTED`. Wrong type (`"1"`, `1.5`, `-1`, `null`, `true`, `NaN`, `{}`): `SCHEMA_VERSION_INVALID`. Tests assert the message text of each.
+  - Current-version passthrough returns the spike composition unchanged and runs no migration.
+  - Registry proven with a synthetic, test-only v0 to v1 migration (separate `visualTrack`/`audioTrack` fields and `preset` renamed): migrated data parses to the spike composition; migrated data still gets the strict parse; a migration that does not advance the version or that throws is reported as `MIGRATION_FAILED` instead of throwing; the migration receives a copy, so the frozen input is untouched.
+  - The production registry `COMPOSITION_MIGRATIONS` is empty, asserted by a test, because version 1 is the only version ever stored.
+  - Kernel boundary re-checked: kernel modules import only `zod` and sibling modules.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
 
 ---
 

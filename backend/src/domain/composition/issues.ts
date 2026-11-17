@@ -24,6 +24,12 @@ export const ISSUE_CODES = [
   "CLIP_NOT_FOUND",
   "INDEX_OUT_OF_RANGE",
   "CLIP_KIND_NOT_SUPPORTED",
+  // Failures while reading stored data (parseComposition).
+  "SCHEMA_VERSION_MISSING",
+  "SCHEMA_VERSION_INVALID",
+  "SCHEMA_VERSION_UNSUPPORTED",
+  "SCHEMA_VERSION_TOO_NEW",
+  "MIGRATION_FAILED",
 ] as const;
 
 export type IssueCode = (typeof ISSUE_CODES)[number];
@@ -40,6 +46,24 @@ export interface Issue {
    */
   path: IssuePath;
   message: string;
+}
+
+/**
+ * Converts schema-library issues into kernel issues. The parameter is typed
+ * structurally so this module does not depend on the schema library.
+ */
+export function structuralIssues(
+  schemaIssues: readonly { path: readonly PropertyKey[]; message: string }[],
+  prefix: IssuePath = [],
+): Issue[] {
+  return schemaIssues.map((issue) => ({
+    code: "INVALID_STRUCTURE",
+    path: [
+      ...prefix,
+      ...issue.path.map((segment) => (typeof segment === "number" ? segment : String(segment))),
+    ],
+    message: issue.message,
+  }));
 }
 
 export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
