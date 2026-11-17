@@ -5,6 +5,7 @@ import { Canvas } from './Canvas'
 import { clampZoom, toCanvasPoint, type Pan } from './canvasGeometry'
 import { CommandDock, type ContextChip, type MentionEntry } from './CommandDock'
 import { EditorToolbar } from './EditorToolbar'
+import { ExportError, exportFileName, exportProject } from './exportProject'
 import { PlanCard } from './PlanCard'
 import { StudioPanel } from './StudioPanel'
 import { Timeline } from './Timeline'
@@ -177,9 +178,9 @@ export function ProjectEditor({ projectTitle, onHome }: ProjectEditorProps) {
   /* ---------- export ---------- */
 
   /**
-   * Spike: asks the backend to render the fixed FFmpeg demo and saves the
-   * returned MP4. The ref blocks a second click that lands before React
-   * re-renders the button as disabled.
+   * Renders the current timeline on the backend and saves the returned MP4.
+   * The ref blocks a second click that lands before React re-renders the
+   * button as disabled.
    */
   const handleExport = async () => {
     if (exportingRef.current) return
@@ -187,26 +188,26 @@ export function ProjectEditor({ projectTitle, onHome }: ProjectEditorProps) {
     setExporting(true)
 
     try {
-      const response = await fetch('/api/demo-render', { method: 'POST' })
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error ?? `Render failed (${response.status})`)
-      }
-
-      const blob = await response.blob()
+      const blob = await exportProject(project)
+      const fileName = exportFileName(project.title)
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'knarra-demo.mp4'
+      link.download = fileName
       document.body.appendChild(link)
       link.click()
       link.remove()
       setTimeout(() => URL.revokeObjectURL(url), 0)
 
-      toast('knarra-demo.mp4 downloaded')
+      toast(`${fileName} downloaded`)
     } catch (error) {
       console.error(error)
-      toast('Export failed. Check the render server and try again.', 'warn')
+      toast(
+        error instanceof ExportError
+          ? error.message
+          : 'Export failed. Check the render server and try again.',
+        'warn',
+      )
     } finally {
       exportingRef.current = false
       setExporting(false)

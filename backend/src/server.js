@@ -2,12 +2,17 @@ import express from "express";
 import cors from "cors";
 const PORT = 3001;
 import { renderMinimalDemo } from "../ffmpeg-practice/render.js";
+import { createExportsRouter } from "./api/exports.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Project-driven Export (KNAR-302). The router parses its own bodies: uploads
+// are streamed to disk, never buffered by the JSON parser above.
+app.use("/api/exports", createExportsRouter());
 
 app.get("/", (req, res) => {
   res

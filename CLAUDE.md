@@ -54,11 +54,12 @@ Frontend (`frontend/`):
 - Dev server: `npm run dev` (proxies `/api` to `http://localhost:3001`)
 - Lint: `npm run lint`
 - Type-check: `npx tsc -p tsconfig.app.json --noEmit` and `npx tsc -p tsconfig.node.json --noEmit`
+- Unit tests: `npm test` (Vitest, `src/**/*.test.ts`)
 - Build: `npm run build`
 
 Backend (`backend/`):
 - Install: `npm install`
-- Dev server: `npm run dev` (port 3001; requires `ffmpeg` and `ffprobe` on PATH)
+- Dev server: `npm run dev` (port 3001; runs `src/server.js` through `tsx` so it can import the TypeScript modules; requires `ffmpeg` and `ffprobe` on PATH)
 - Type-check: `npm run typecheck` (`tsc --noEmit`; TypeScript files are strict, existing JavaScript is allowed but not checked)
 - Unit tests: `npm test` (Vitest, `src/**/*.test.ts`); one area: `npm test -- <name>`, for example `npm test -- schema`
 - Integration tests: `npm run test:integration` (`src/**/*.integration.test.ts`; runs real `ffmpeg` and `ffprobe`, which must be on PATH; writes only to a temporary directory)
@@ -67,4 +68,4 @@ Backend (`backend/`):
 
 Backend commands verified on 2026-11-17 (KNAR-101: TypeScript 7.0.2, Vitest 5.1.0, Zod 4.6.7, tsx 4.23.15; KNAR-301: `@types/node` 24, integration tests).
 
-Not yet available: frontend tests, backend lint, migrations, API integration tests. Later tasks add them and must update this section.
+Not yet available: backend lint, migrations, browser (end-to-end) tests. Later tasks add them and must update this section.

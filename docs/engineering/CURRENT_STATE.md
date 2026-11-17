@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-17 at commit `274a7fe` plus the KNAR-301 changes (M1, M2, and the M3 backend complete; branch `feat/render-compiler`).
+Last verified: 2026-11-17 at commit `572f6df` plus the KNAR-302 changes (M1 to M3 implemented; KNAR-302 awaits the manual browser test; branch `feat/render-compiler`).
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -34,7 +34,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 | Segments | In/Out markers on video preview create `Segment`s (`V1-S1`) | `ProjectEditor.tsx:632-640` |
 | Local planner | Deterministic regex parser: `@` mentions, mm:ss ranges, speed, music intent | `frontend/src/features/editor/planner.ts:84-161` |
 | Review-before-apply | Plan validated, shown in `PlanCard`, applied only without errors | `PlanCard.tsx`, `ProjectEditor.tsx:717-778` |
-| Demo render endpoint | `POST /api/demo-render`; global `rendering` flag (409 if busy); `res.download` of fixed MP4 | `backend/src/server.js:20-49` |
+| Demo render endpoint (no longer called by the frontend) | `POST /api/demo-render`; global `rendering` flag (409 if busy); `res.download` of fixed MP4 | `backend/src/server.js:20-49` |
 | FFmpeg spike | `spawn('ffmpeg', args)` with argument array, no shell; trim/setpts, scale/pad 1080x1920, setsar, fps=30, format=yuv420p, concat, atrim/afade, AAC 192k, `+faststart` | `backend/ffmpeg-practice/render.js` (tracked; spike media is gitignored) |
 | Spike verification | ffprobe checks duration ±0.1 s and 1080x1920 | `backend/ffmpeg-practice/verify.js` (tracked) |
 | Composition v1 structural schemas | Strict Zod schemas for `AssetRef`, clips, tracks, `Composition` (`schemaVersion: 1`), `RenderPreset`; kernel ID format; `vertical-1080p30` preset; types via `z.infer`. | `backend/src/domain/composition/{schema,types,presets,index}.ts`, `schema.test.ts` |
@@ -43,7 +43,8 @@ This document records what genuinely exists. Update it whenever a task changes w
 | Edit-operation reducer | `applyOperations(composition, operations, assets)`: parses the operations, applies them to a copy, re-validates, and returns a new Composition or issues. Pure and all-or-nothing. Not called by the server or the frontend yet | `backend/src/domain/composition/reducer.ts`, `reducer.test.ts` |
 | Versioned Composition parsing | `parseComposition(unknown)`: checks `schemaVersion`, runs registered migrations to the current version, then the strict parse. The production migration registry is empty (version 1 is the only version) | `backend/src/domain/composition/{parse,migrations}.ts`, `parse.test.ts` |
 | Render compiler | `compileRenderPlan(composition, assets, preset)`: pure function from a valid Composition to FFmpeg inputs, filtergraph, and output arguments; limited-range `yuv420p`; clip audio mixed with background audio (ADR 0009). Not called by the server yet | `backend/src/render/compiler/{compile,types,index}.ts`, `compile.test.ts` |
-| FFmpeg executor and probe | `executeRenderPlan` runs a plan with progress, cancellation, and partial-output cleanup; `probeMedia` reads validated media properties with ffprobe; `runProcess` is the only place a process is spawned. Not called by the server yet: Export still uses the fixed demo render until KNAR-302 | `backend/src/media/*.ts`, `render.integration.test.ts` |
+| FFmpeg executor and probe | `executeRenderPlan` runs a plan with progress, cancellation, and partial-output cleanup; `probeMedia` reads validated media properties with ffprobe; `runProcess` is the only place a process is spawned. Used by the export API | `backend/src/media/*.ts`, `render.integration.test.ts` |
+| Project-driven Export (in review) | The Export button maps the timeline with `toComposition`, uploads the used media for the length of one export, and downloads the MP4 the backend renders from the validated Composition. Synchronous; one render at a time. Automated tests pass; not yet tested in a browser | `backend/src/api/exports.ts`, `frontend/src/features/editor/{composition,exportProject}.ts`, `ProjectEditor.tsx` |
 
 ## Stubbed or Mocked
 
@@ -51,14 +52,14 @@ This document records what genuinely exists. Update it whenever a task changes w
 - **`executeEditPlan`:** `console.info` returning `{status:'not-connected'}` (`planner.ts:334-337`).
 - **Save indicator:** 550 ms timer; nothing is persisted (`ProjectEditor.tsx:161-169`).
 - **Workspace:** seeded fake projects and statuses (`frontend/src/features/workspace/data.ts`); workspace settings never reach the editor.
-- **Export:** downloads the fixed demo MP4; the project is not sent (`ProjectEditor.tsx:184-214`; dev-only `/api` proxy in `frontend/vite.config.ts`). This spike is not the Export architecture: KNAR-302 replaces it with a project-driven synchronous render, and KNAR-602 replaces that with render jobs.
+- **Export is synchronous and temporary in two ways:** the browser re-uploads the used media on every export (until KNAR-502), and the request stays open for the whole render with no progress or cancel control (until KNAR-602). The `/api` proxy in `frontend/vite.config.ts` is dev-only.
 - **Other:** "Analyze style", Markdown/Link/Sandbox sources, feedback, sign-out are toasts; waveforms are fake; `CanvasNode.scale/rotation/groupId`, `TimelineClip.effects`, `EditorProject.instructions` are unused.
 
 ## Absent
 
 - Persistence: no database, migrations, project storage, uploads, or storage layout.
-- Job state and any HTTP route that uses the new compiler, executor, or probe (KNAR-302, M6).
-- Tests: no API or database tests. The backend has 333 unit tests (kernel, compiler, media) and 14 integration tests that render with real FFmpeg from generated fixtures. The frontend has no test runner.
+- Render jobs, progress reporting to the client, and a cancel control (M6).
+- Tests: no database or browser tests. The backend has 347 unit tests and 40 integration tests (real FFmpeg, real HTTP, generated fixtures). The frontend has 20 unit tests for the Composition adapter.
 - Runtime validation in product code: the kernel schemas exist, but no request, saved project, or edit passes through them yet.
 - Backend TypeScript source (toolchain only so far), `@types/node`, backend linting, CI, pre-commit hooks, Prettier, `.editorconfig`.
 - `.env.example`, configuration loading (port is hardcoded `3001`), structured logging.
@@ -73,8 +74,10 @@ This document records what genuinely exists. Update it whenever a task changes w
 | `npx eslint .` (frontend) | Pass, 0 problems |
 | `npm run build` (frontend) | Not run during audit (writes `dist/`); a prior build exists |
 | `npm run typecheck` (backend, 2026-11-17) | Pass, 0 errors |
-| `npm test` (backend, 2026-11-17) | Pass, 333 tests |
-| `npm run test:integration` (backend, 2026-11-17) | Pass, 14 tests |
+| `npm test` (backend, 2026-11-17) | Pass, 347 tests |
+| `npm run test:integration` (backend, 2026-11-17) | Pass, 40 tests |
+| `npm test` (frontend, 2026-11-17) | Pass, 20 tests |
+| `npm run build` (frontend, 2026-11-17) | Pass |
 
 ## Known Defects
 

@@ -293,3 +293,28 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
+
+---
+
+## KNAR-302 — Project-driven synchronous Export integration (2026-11-17)
+
+1. **What problem does this layer solve?**
+   Until now Export ignored the project and rendered one fixed demo. This connects the existing editor to the real pipeline: the timeline becomes a Composition, the backend validates, compiles, and renders it, and the browser downloads the result.
+
+2. **What inputs and outputs cross its boundary?**
+   Browser to server: a new export request, then each used media file as raw bytes addressed by its asset ID, then the Composition as JSON. Server to browser: an MP4, or a list of issues with messages. No filename, no file path, and no media metadata crosses from the browser.
+
+3. **What invariant does it protect?**
+   Invariants 2 and 5: what is rendered is exactly the validated Composition. It also applies the safety rules for uploads before the storage layer exists: untrusted names never become paths, and derived files are cleaned up after failed or cancelled work.
+
+4. **What failure case did the test expose?**
+   The server must not believe the browser about a file. A test uploads an audio file into the slot the Composition uses as an image; because the server probes the file itself, the result is `ASSET_KIND_MISMATCH` instead of FFmpeg being handed the wrong kind of input. A second case came from how browsers and ffprobe measure length: they can disagree by a few milliseconds, which made a "use the whole clip" range fail validation, so ranges within 500 ms of the end are trimmed to the real end. A third was ordering in cleanup: the directory is removed before an error response is sent, so a client never sees a failure while its media is still on disk.
+
+5. **How would I diagnose it without Claude?**
+   - Browser DevTools, Network tab: watch `POST /api/exports`, the `PUT` uploads, then `/render`; a 422 response body lists the issues.
+   - Reproduce without the UI using `curl` and the spike fixture.
+   - Read the backend terminal: render failures log FFmpeg's stderr there, not to the browser.
+   - Look in the system temp folder under `knarra-exports`: it should be empty when no export is running.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was implemented overnight under my delegation; my browser test is still to do, so the task is in review.

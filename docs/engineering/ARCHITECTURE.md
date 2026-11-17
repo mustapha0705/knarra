@@ -125,9 +125,29 @@ Entry points:
 - `probeMedia(path)`: runs ffprobe and returns a validated `MediaProbe` (format, duration, video codec/size/pixel format/color range/color space/frame rate, audio codec/sample rate/channels). Cover art embedded in audio files is not treated as video.
 - `ProcessError.stderr` can contain file paths. It is for server logs and must not be returned to a client.
 
+### Synchronous Export API (KNAR-302, temporary)
+
+`backend/src/api/exports.ts`, mounted at `/api/exports`. It exists because the backend has no stored media until M5. KNAR-502 replaces the uploads with stored assets and KNAR-602 replaces the synchronous render with jobs.
+
+| Request | Purpose |
+| --- | --- |
+| `POST /api/exports` | Create an export; returns `{ exportId }` (a server-generated UUID) |
+| `PUT /api/exports/:exportId/assets/:assetId` | Upload one file as the raw request body, streamed to disk |
+| `POST /api/exports/:exportId/render` | Body `{ composition }`; returns the MP4, or 422 with `issues` |
+| `DELETE /api/exports/:exportId` | Discard an export that was not rendered |
+
+- Each export has its own server-generated directory. Files are stored under server-generated names; the client sends no filename, and `assetId` must match the kernel ID format.
+- The server builds the asset catalog by probing the uploaded files. The client's idea of a file's kind, duration, or size is never used.
+- The Composition goes through `parseComposition`, then `compileRenderPlan` (which validates), then `executeRenderPlan`.
+- A source range that ends up to 500 ms after its file does is trimmed to the file's end with a `trimClip` operation, because browser-measured durations differ slightly from ffprobe's. Larger overshoots are reported.
+- One render runs at a time (409 otherwise). If the client disconnects, FFmpeg is stopped.
+- The export directory is deleted after the download, on any failure, on cancellation, and after an hour if never rendered.
+- Limits: 30 files per export, 1 GB per file.
+- Error responses carry issue codes, paths, and messages only. FFmpeg's stderr and server paths are logged, not returned.
+
 ### Frontend Mapping (staged: KNAR-302 to M7)
 
-The existing frontend is connected in stages (ADR 0008). The `toComposition` adapter introduced by KNAR-302 implements the clip and track rows; server asset records arrive with KNAR-502; the `Editor*` renames and routing every mutation through `EditOperation`s complete in M7.
+The existing frontend is connected in stages (ADR 0008). The `toComposition` adapter (`frontend/src/features/editor/composition.ts`, KNAR-302) implements the clip and track rows: clips on the Video and Images lanes are merged into one sequence ordered by timeline start, and a changed clip value wins over the asset's slider value; server asset records arrive with KNAR-502; the `Editor*` renames and routing every mutation through `EditOperation`s complete in M7.
 
 | Frontend today | Composition v1 |
 | --- | --- |

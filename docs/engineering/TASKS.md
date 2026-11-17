@@ -20,7 +20,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-106 | done | M1 | Schema version and migration boundary | KNAR-102 |
 | KNAR-201 | done | M2 | Deterministic render compiler | M1 |
 | KNAR-301 | done | M3 | FFmpeg executor and media probe | KNAR-201 |
-| KNAR-302 | planned | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
+| KNAR-302 | review | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
 | KNAR-401 | planned | M4 | Project persistence and versions | M1 |
 | KNAR-402 | planned | M4 | Project save and reopen integration (frontend checkpoint) | KNAR-401, KNAR-302 |
 | KNAR-501 | planned | M5 | Asset ingestion and proxies | KNAR-301, KNAR-401 |
@@ -396,6 +396,41 @@ Continues on branch `feat/render-compiler`. Code lives in `backend/src/media/`.
   - Frontend checks omitted: nothing the frontend builds from or consumes changed. `server.js` and the demo render endpoint are untouched.
   - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
 
+### KNAR-302 — Project-driven synchronous Export integration
+
+- Status: review
+- Milestone: M3 (frontend integration checkpoint)
+- Depends on: KNAR-201, KNAR-301
+- Owner/session: lead
+- Intended files: `backend/src/api/{exports.ts,exports.test.ts,exports.integration.test.ts}`, `backend/src/server.js` (mount the router), `backend/package.json` (dev script, type definitions), `frontend/src/features/editor/{composition.ts,composition.test.ts,exportProject.ts,ProjectEditor.tsx}`, `frontend/package.json` (test runner), `frontend/vite.config.ts` (comment), `CLAUDE.md` (Commands)
+- Goal: the existing Export control renders the project that is on the timeline, replacing the hard-coded render spike with the first project-driven render.
+- Non-goals: persistence, background jobs, progress streaming, cancellation controls in the UI, LLM planning, full migration of every editor mutation, any redesign of the editor UI.
+- Approved dependencies: `@types/express` (backend, development only) and `vitest` (frontend, development only), both added under the overnight discretion grant of 2026-11-17. No upload library: files are streamed with Node and Express alone.
+- Acceptance criteria:
+  - A `toComposition` adapter maps the existing editor state to a Composition.
+  - The Export control sends that Composition to the backend, which validates it structurally and semantically, compiles it, renders it synchronously, and returns the MP4, which the browser downloads.
+  - Media reaches the backend only for the length of one export, under server-generated names; uploaded filenames are never used as paths or FFmpeg arguments; the media is deleted when the render ends, fails, or is abandoned.
+  - Asset metadata is read from the files on the server, not taken from the client.
+  - An invalid project is rejected with an actionable message and never reaches FFmpeg.
+  - The approved UI is unchanged apart from the behavior of Export.
+- Required tests: adapter unit tests; API integration tests over real HTTP with real FFmpeg; frontend type-check, lint, tests, and build; Mustapha's manual browser test.
+- Verification commands: `cd backend && npm run typecheck && npm run test:all`; `cd frontend && npx tsc -p tsconfig.app.json --noEmit && npx tsc -p tsconfig.node.json --noEmit && npm run lint && npm test && npm run build`
+- Learning checkpoint: explain why the server probes the uploaded files instead of trusting the browser's metadata, and why the browser never sends a filename.
+- Completion evidence (2026-11-17, branch `feat/render-compiler`, against base `572f6df`). Status is `review`, not `done`: every automated check passes, but the manual browser test has not been performed by anyone.
+  - Backend: `npm run typecheck` exit 0; `npm test` 12 files, 347 tests passed; `npm run test:integration` 2 files, 40 tests passed.
+  - Frontend: `npx tsc -p tsconfig.app.json --noEmit` and `-p tsconfig.node.json` exit 0; `npm run lint` 0 problems; `npm test` 20 tests passed; `npm run build` succeeded.
+  - Adapter (`toComposition`, 15 tests): Video and Images lanes merge into one sequence ordered by timeline start; a video clip's duration is recomputed from its range and speed; a changed clip value wins over the asset slider value; clips whose asset is missing or of the wrong kind are skipped and listed; the output contains no URLs, filenames, or canvas state; the project is not mutated.
+  - API over real HTTP with real FFmpeg (26 tests): upload three generated files, send a Composition, receive an MP4 that probes as H.264 270x480, `yuv420p`, `tv`, 30 fps, AAC 48 kHz stereo, 2000 ms; the export directory is gone afterwards.
+  - Untrusted input: stored names match `asset-<uuid>` only; asset IDs such as `..%2F..%2Fetc`, `a.b`, and `-x` are rejected with nothing written; unknown or malformed export IDs answer 404; a file over the limit answers 413 and is removed; a non-media file answers 422; a client that uploads audio into an image slot gets `ASSET_KIND_MISMATCH`, proving the kind comes from the file.
+  - Validation: speed 100 answers 422 with `SPEED_OUT_OF_RANGE` at `tracks.0.clips.1.speed`, with no server path in the body; a future schema version, an unknown key, an unknown preset, and a missing body all answer 422; a clip whose media was not uploaded gives `ASSET_NOT_FOUND`.
+  - Browser-measured durations: a range ending 40 ms past the file renders; one ending 1000 ms past it is rejected with `SOURCE_RANGE_OUT_OF_BOUNDS`.
+  - One render at a time: a second render answers 409 while the first runs; when the first client disconnects, FFmpeg stops and its directory is deleted; the second export then renders.
+  - Real server check performed by the agent with `curl` (not a browser): started `src/server.js` through `tsx`, uploaded the spike media, posted `spike.composition.json`, and received a 1080x1920 `yuv420p`/`tv` MP4 of 8.000000 s in about 5 s; `POST /api/demo-render` still answered 200; no export directory remained.
+  - Deviations from the headline: media is sent as one upload request per file before the render request, not inside a single request, so no multipart library was needed; `/api/demo-render` and `ffmpeg-practice/render.js` are left in place, unused by the frontend, until Mustapha confirms the new Export.
+  - `npm run dev` now runs the server through `tsx`. A dev server that was already running must be restarted once.
+  - Not done, by design: no persistence, jobs, progress UI, or cancel button; open CORS is unchanged (M6).
+  - Manual browser test: NOT performed. Checklist for Mustapha: (1) restart `npm run dev` in `backend/` and start the frontend; (2) import an image, a video, and an audio file; (3) add each to the timeline; (4) click Export and confirm an MP4 named after the project downloads and plays in the timeline order with the music; (5) drag a clip to reorder, export again, and confirm the order changed; (6) with an empty timeline, click Export and confirm the toast asks for a clip; (7) stop the backend, click Export, and confirm the failure toast.
+
 ---
 
 ## M3–M9: Headline Tasks
@@ -404,11 +439,6 @@ Expand each into full task entries (and split as needed) at the start of its mil
 
 Frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602) connect the existing React frontend to the backend contract its milestone has just stabilized. Each is tested in the browser before the next milestone starts. They do not redesign the approved UI (ADR 0008).
 
-- **KNAR-302 (M3, frontend checkpoint) — Project-driven synchronous Export integration.** Depends on KNAR-201 and KNAR-301. Replaces the hard-coded render spike with the first project-driven render:
-  - A `toComposition` adapter maps the existing editor state to a valid Composition.
-  - The existing Export control sends that Composition to the backend, which validates it structurally and semantically, compiles it, renders it synchronously, and returns the MP4 for download.
-  - Media: imported files exist only in the browser until M5, so the Export request carries the files the Composition references. The server stores them under server-generated temporary names, never uses the uploaded filenames as paths or FFmpeg arguments, and deletes them after the render. This is temporary and is replaced by KNAR-502. Any upload dependency is approved when this task is expanded.
-  - Out of scope: persistence, background jobs, progress streaming, cancellation, LLM planning, full migration of every editor mutation.
 - **KNAR-401 (M4):** PostgreSQL migrations, repositories, save/reopen API, numeric-revision stale-write protection, immutable versions.
 - **KNAR-402 (M4, frontend checkpoint) — Project save and reopen integration.** Depends on KNAR-401 and KNAR-302. The Dashboard and Editor first stop relying entirely on in-memory project data:
   - Dashboard project creation creates backend project records.
