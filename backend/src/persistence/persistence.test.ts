@@ -15,7 +15,7 @@ const drivers: [string, () => Promise<Database>][] = [["embedded PostgreSQL", cr
 if (realUrl) drivers.push(["PostgreSQL server", async () => createPgDatabase(realUrl)]);
 
 const RESET = `
-  DROP TABLE IF EXISTS render_jobs, project_versions, assets, projects, schema_migrations CASCADE;
+  DROP TABLE IF EXISTS asset_derivatives, render_jobs, project_versions, assets, projects, schema_migrations CASCADE;
   DROP FUNCTION IF EXISTS forbid_project_version_update() CASCADE;
 `;
 
@@ -62,7 +62,14 @@ describe.each(drivers)("migrations on %s", (_name, connect) => {
 
     expect(ran).toEqual(migrations.map((migration) => migration.name));
     expect(ran[0]).toBe("0001_initial.sql");
-    expect(await tables()).toEqual(["assets", "project_versions", "projects", "render_jobs", "schema_migrations"]);
+    expect(await tables()).toEqual([
+      "asset_derivatives",
+      "assets",
+      "project_versions",
+      "projects",
+      "render_jobs",
+      "schema_migrations",
+    ]);
   });
 
   it("does nothing the second time", async () => {

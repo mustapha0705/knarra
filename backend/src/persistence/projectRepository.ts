@@ -211,12 +211,16 @@ export class ProjectRepository {
         return revision === undefined ? { status: "not-found" } : { status: "stale", currentRevision: revision };
       }
 
-      await tx.query("DELETE FROM assets WHERE project_id = $1", [id]);
+      // Only browser-reported assets are replaced. Uploaded assets (verified)
+      // belong to the asset service; a saved entry with the same ID is ignored,
+      // so the server's metadata always wins.
+      await tx.query("DELETE FROM assets WHERE project_id = $1 AND NOT verified", [id]);
       for (const [position, asset] of update.assets.entries()) {
         await tx.query(
           `INSERT INTO assets (project_id, id, kind, name, duration_ms, width, height, has_audio, verified, position)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [id, asset.id, asset.kind, asset.name, asset.durationMs, asset.width, asset.height, asset.hasAudio, asset.verified, position],
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9)
+           ON CONFLICT (project_id, id) DO NOTHING`,
+          [id, asset.id, asset.kind, asset.name, asset.durationMs, asset.width, asset.height, asset.hasAudio, position],
         );
       }
 

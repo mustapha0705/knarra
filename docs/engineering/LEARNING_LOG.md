@@ -343,3 +343,28 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was implemented overnight under my delegation. I still need to connect it to my PostgreSQL server, so it is in review.
+
+---
+
+## KNAR-501 — Asset ingestion and proxies (2026-11-17)
+
+1. **What problem does this layer solve?**
+   Media now lives on the server instead of only in a browser tab. An upload becomes an original that is never changed, plus small derived files (a thumbnail and an editing proxy) that make the editor fast without touching the original.
+
+2. **What inputs and outputs cross its boundary?**
+   In: the raw bytes of a file, and a display name. Out: an asset record whose kind, duration, size, dimensions, and checksum the server measured itself, and URLs for its thumbnail and proxy once they are ready. The display name is never used to build a path; every path is `storage/<area>/<assetId>/<fixed name>`.
+
+3. **What invariant does it protect?**
+   Invariant 8: original media is immutable, proxies and thumbnails are derived artifacts, and final exports use originals. The original is written once, made read-only, never overwritten, and has no download route; derived files can be deleted and regenerated at any time.
+
+4. **What failure case did the test expose?**
+   An interaction between two milestones. The M4 save replaced a project's whole asset list on every save, which was fine while assets were only the browser's description. Once uploaded assets exist, that same save would have deleted them, and through the cascade their derivative records. The fix splits ownership: saves manage browser-reported rows; uploads own verified rows, and the server's metadata always wins.
+
+5. **How would I diagnose it without Claude?**
+   - `SELECT id, kind, verified, sha256 FROM assets WHERE project_id = '...';` and `SELECT * FROM asset_derivatives;`.
+   - Compare a stored original with `certutil -hashfile <path> SHA256` (Windows) against the `sha256` column.
+   - Look under `backend/storage/originals/<assetId>/` and `derived/<assetId>/`.
+   - A derivative with `status = 'failed'` has a short `error_code`; the full FFmpeg output is in the backend's terminal.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was implemented overnight under my delegation and is in review.

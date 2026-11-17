@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-17 at commit `11092ad` plus the KNAR-401 changes (M1 to M3 and the M4 backend implemented; KNAR-302 and KNAR-401 are in review; branch `feat/project-persistence`).
+Last verified: 2026-11-17 at commit `9498d18` plus the KNAR-501 changes (backends for M1 to M5 implemented; KNAR-302, KNAR-401, and KNAR-501 are in review; branch `feat/media-ingestion`).
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -46,6 +46,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 | FFmpeg executor and probe | `executeRenderPlan` runs a plan with progress, cancellation, and partial-output cleanup; `probeMedia` reads validated media properties with ffprobe; `runProcess` is the only place a process is spawned. Used by the export API | `backend/src/media/*.ts`, `render.integration.test.ts` |
 | Project-driven Export (in review) | The Export button maps the timeline with `toComposition`, uploads the used media for the length of one export, and downloads the MP4 the backend renders from the validated Composition. Synchronous; one render at a time. Automated tests pass; not yet tested in a browser | `backend/src/api/exports.ts`, `frontend/src/features/editor/{composition,exportProject}.ts`, `ProjectEditor.tsx` |
 | Project persistence backend (in review) | PostgreSQL schema and migrations; create, save, reopen, delete; numeric-revision stale-write protection; immutable versions; `/api/projects`. Tested on an embedded PostgreSQL only; not yet connected to a real server, and not yet used by the frontend (KNAR-402) | `backend/src/persistence/*`, `backend/src/projects/service.ts`, `backend/src/api/projects.ts` |
+| Asset ingestion backend (in review) | Uploads stored as read-only originals under ID-built paths; metadata from ffprobe; thumbnails and proxies with tracked state; `/api/projects/:id/assets`. Not yet used by the frontend (KNAR-502) or by Export (KNAR-602) | `backend/src/storage/localStorage.ts`, `backend/src/assets/service.ts`, `backend/src/media/derive.ts`, `backend/src/api/assets.ts` |
 
 ## Stubbed or Mocked
 
@@ -58,9 +59,9 @@ This document records what genuinely exists. Update it whenever a task changes w
 
 ## Absent
 
-- Uploads and a storage layout (M5). A configured database on this machine: `DATABASE_URL` is not set, so `/api/projects` answers 503 until it is.
+- A configured database on this machine: `DATABASE_URL` is not set, so `/api/projects` answers 503 until it is.
 - Render jobs, progress reporting to the client, and a cancel control (M6).
-- Tests: no browser tests, and no test run against a real PostgreSQL server. The backend has 418 unit tests (database tests use an embedded PostgreSQL) and 40 integration tests (real FFmpeg, real HTTP, generated fixtures). The frontend has 20 unit tests for the Composition adapter.
+- Tests: no browser tests, and no test run against a real PostgreSQL server. The backend has 441 unit tests (database tests use an embedded PostgreSQL) and 70 integration tests (real FFmpeg, real HTTP, generated fixtures). The frontend has 20 unit tests for the Composition adapter.
 - Runtime validation in product code: the kernel schemas exist, but no request, saved project, or edit passes through them yet.
 - Backend TypeScript source (toolchain only so far), `@types/node`, backend linting, CI, pre-commit hooks, Prettier, `.editorconfig`.
 - Configuration beyond `DATABASE_URL` (the port is hardcoded `3001`), structured logging.
@@ -75,8 +76,8 @@ This document records what genuinely exists. Update it whenever a task changes w
 | `npx eslint .` (frontend) | Pass, 0 problems |
 | `npm run build` (frontend) | Not run during audit (writes `dist/`); a prior build exists |
 | `npm run typecheck` (backend, 2026-11-17) | Pass, 0 errors |
-| `npm test` (backend, 2026-11-17) | Pass, 418 tests |
-| `npm run test:integration` (backend, 2026-11-17) | Pass, 40 tests |
+| `npm test` (backend, 2026-11-17) | Pass, 441 tests |
+| `npm run test:integration` (backend, 2026-11-17) | Pass, 70 tests |
 | `npm test` (frontend, 2026-11-17) | Pass, 20 tests |
 | `npm run build` (frontend, 2026-11-17) | Pass |
 

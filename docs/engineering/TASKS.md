@@ -23,7 +23,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-302 | review | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
 | KNAR-401 | review | M4 | Project persistence and versions | M1 |
 | KNAR-402 | planned | M4 | Project save and reopen integration (frontend checkpoint) | KNAR-401, KNAR-302 |
-| KNAR-501 | planned | M5 | Asset ingestion and proxies | KNAR-301, KNAR-401 |
+| KNAR-501 | review | M5 | Asset ingestion and proxies | KNAR-301, KNAR-401 |
 | KNAR-502 | planned | M5 | Asset ingestion and proxy integration (frontend checkpoint) | KNAR-501, KNAR-402 |
 | KNAR-601 | planned | M6 | Asynchronous render jobs | KNAR-301, KNAR-401 |
 | KNAR-602 | planned | M6 | Asynchronous Export experience (frontend checkpoint) | KNAR-601, KNAR-502 |
@@ -478,6 +478,45 @@ Branch `feat/project-persistence`, stacked on `feat/render-compiler`. Code lives
 
 ---
 
+## M5: Asset Ingestion and Proxies
+
+Branch `feat/media-ingestion`, stacked on `feat/project-persistence`.
+
+### KNAR-501 — Asset ingestion and proxies
+
+- Status: review
+- Milestone: M5
+- Depends on: KNAR-301, KNAR-401
+- Owner/session: lead
+- Intended files: `backend/src/storage/{localStorage.ts,localStorage.test.ts}`, `backend/src/media/derive.ts`, `backend/src/persistence/{assetRepository.ts,projectRepository.ts,persistence.test.ts}`, `backend/src/persistence/migrations/0002_asset_ingestion.sql`, `backend/src/assets/service.ts`, `backend/src/api/{assets.ts,assets.integration.test.ts,projects.ts}`, `backend/src/server.js`, `backend/.gitignore`
+- Goal: uploads become immutable originals with server-read metadata, plus thumbnails and editing proxies, under a storage layout built only from IDs.
+- Non-goals: connecting the frontend (KNAR-502); using stored originals for Export (KNAR-602); cloud storage; analysis (M9).
+- Acceptance criteria:
+  - A local-filesystem storage adapter builds every path from IDs and fixed names and proves it stays under the root.
+  - Uploads are streamed to disk, size-limited, hashed, and stored read-only; a failed upload leaves no file and no record.
+  - Metadata is read from the stored file with ffprobe and persisted; the uploaded filename is display text only.
+  - Thumbnails (images, video) and proxies (video) are generated as derived artifacts with tracked state (`pending`, `ready`, `failed`).
+  - Gate: originals remain unchanged; regenerated proxies do not create duplicate asset records; filenames cannot escape the storage root.
+- Required tests: storage path-escape and failure tests; API tests over real HTTP with real FFmpeg for upload, classification, rejection, derivatives, regeneration idempotency, checksum, deletion.
+- Verification commands: `cd backend && npm run typecheck && npm run test:all`
+- Learning checkpoint: explain why the file is stored and probed before any database row exists, and why there is no route that serves an original.
+- Completion evidence (2026-11-17, branch `feat/media-ingestion`, against base `9498d18`). Status is `review`: all automated tests pass on an embedded PostgreSQL with real FFmpeg; like KNAR-401, it has not been run against a real PostgreSQL server or used from a browser.
+  - `npm run typecheck`: exit 0. `npm test`: 15 files, 441 tests passed. `npm run test:integration`: 3 files, 70 tests passed.
+  - Storage (23 tests): paths are built from IDs and fixed names only; IDs such as `..`, `../x`, `a\\b`, `C:\\x`, `/etc`, `.hidden`, and NUL-containing strings are refused by every operation; originals are stored read-only with size and SHA-256, never overwritten; too-large, empty, and broken uploads leave nothing behind; read-only originals can still be removed on Windows.
+  - Upload API (30 tests, real HTTP, real FFmpeg, embedded PostgreSQL): a 1920x1080 video with audio is recorded with duration 3000 ms, size, and hash read by the server; PNG and MP3 are classified from content; an audio file named `.mp4` is still audio; text, a shell script, an empty body, and an oversized file are rejected (415, 415, 400, 413) with no file and no record left.
+  - Gate, filenames: names such as `../../../../escape.png`, `C:\\Windows\\escape.png`, `/etc/passwd`, `$(rm -rf ~).png`, and one with a NUL byte are stored only as display text; no file outside the storage root is created; path-like project and asset IDs answer 404; there is no route that serves an original.
+  - Derivatives: a video gets a JPEG thumbnail no larger than 480 px and an H.264/AAC 960x540 proxy of the right length.
+  - Gate, idempotency and originals: after regenerating three times (two concurrently) there is still one asset row, two derivative rows, and two derived files; the original's SHA-256 still equals the uploaded bytes and the stored hash.
+  - Failure: when derived storage is unusable the asset survives and failure records contain no path or stderr.
+  - Deletion: deleting an asset, or its whole project, removes the original and derived files.
+  - Interaction with KNAR-401 found and fixed here: a project save replaced the whole asset list, which would have deleted uploaded assets and their derivatives. Saves now replace only browser-reported rows and cannot overwrite a verified asset's metadata (tested).
+  - Fix found here: `backend/.gitignore` ignores `/storage/` anchored, so it does not hide `src/storage/`.
+  - No new dependencies.
+  - Frontend checks omitted: no frontend file changed (KNAR-502 connects the editor).
+  - Manual steps for Mustapha: with `DATABASE_URL` set, upload a file with `curl -X POST -H "X-File-Name: test.mp4" --data-binary @some.mp4 http://localhost:3001/api/projects/<id>/assets`, then fetch `/assets/<assetId>/thumbnail` and `/proxy`, and confirm `backend/storage/` holds the original, thumbnail, and proxy.
+
+---
+
 ## M3–M9: Headline Tasks
 
 Expand each into full task entries (and split as needed) at the start of its milestone.
@@ -490,7 +529,6 @@ Frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602) connec
   - A saved project reopens in the existing editor.
   - Revision and version behavior follows M4 (numeric-revision stale-write protection, explicit immutable versions).
   - Out of scope: uploaded media (KNAR-502), render jobs (KNAR-602).
-- **KNAR-501 (M5):** storage adapter, safe uploads, probe persistence, thumbnails and proxies, path-escape and idempotency tests.
 - **KNAR-502 (M5, frontend checkpoint) — Asset ingestion and proxy integration.** Depends on KNAR-501 and KNAR-402:
   - The existing media-import interface uploads to the backend.
   - The editor stores and uses backend asset identifiers.

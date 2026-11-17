@@ -250,6 +250,27 @@ storage/
 
 All paths are generated on the server from IDs. Uploaded filenames are kept only as display metadata.
 
+Implemented by `backend/src/storage/localStorage.ts` (M5). The root is `KNARRA_STORAGE_DIR`, default `backend/storage/` (gitignored). Originals are written to a temporary name, renamed when complete, and made read-only; an existing original is never overwritten. Only `thumbnail.jpg` and `proxy.mp4` may exist under `derived/<assetId>/`.
+
+### Asset Ingestion (M5)
+
+`/api/projects/:projectId/assets`:
+
+| Request | Purpose |
+| --- | --- |
+| `GET /` | List the project's uploaded assets with derivative states |
+| `POST /` | Upload; raw body, display name in the URI-encoded `X-File-Name` header; 201 |
+| `GET /:assetId` | One asset |
+| `POST /:assetId/derivatives` | Regenerate thumbnail and proxy; 202 |
+| `GET /:assetId/thumbnail`, `GET /:assetId/proxy` | The derived file, once ready |
+| `DELETE /:assetId` | Delete record, original, and derived files |
+
+- Order of an upload: stream to storage (size limit, SHA-256), probe the stored file, then insert the row. Any failure removes the file, so there is never a record without an original and never an orphan file.
+- Kind, duration, dimensions, and audio presence come from ffprobe; the client's claims are not used. Such rows are `verified = true`. A project save never deletes or overwrites a verified asset.
+- Derivatives: images get a thumbnail; videos get a thumbnail and a 960-px H.264/AAC proxy; audio gets none. `asset_derivatives` has one row per asset and kind, so regeneration updates in place. Generation runs in the background; concurrent requests for one asset share a run. Failures record a short code, never a path or stderr.
+- There is no route that serves an original. Final renders read originals; the editor uses proxies (invariant 8).
+- Deleting a project removes its uploaded files after its rows are gone.
+
 ## Security Boundaries
 
 - Model output becomes `EditOperation`s only, and passes the same validation as manual edits.

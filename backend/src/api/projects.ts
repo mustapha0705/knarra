@@ -21,7 +21,12 @@ import { jsonErrors, jsonNotFound } from "./errors.js";
  * `service` is null when no database is configured; every route then answers
  * 503 with an explanation instead of the server failing to start.
  */
-export function createProjectsRouter(service: ProjectService | null): Router {
+export interface ProjectsRouterHooks {
+  /** Called before a project is deleted; the returned function runs after a successful delete. */
+  prepareDelete?: (projectId: string) => Promise<() => Promise<void>>;
+}
+
+export function createProjectsRouter(service: ProjectService | null, hooks: ProjectsRouterHooks = {}): Router {
   const router = express.Router();
 
   if (!service) {
@@ -102,8 +107,10 @@ export function createProjectsRouter(service: ProjectService | null): Router {
   router.delete("/:projectId", async (req, res) => {
     const id = idParam(req, res, "projectId");
     if (!id) return;
+    const cleanup = await hooks.prepareDelete?.(id);
     const outcome = await service.delete(id);
     if (sendFailure(res, outcome)) return;
+    await cleanup?.();
     res.status(204).end();
   });
 
