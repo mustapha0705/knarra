@@ -13,7 +13,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-002 | done | M0 | Planning documents | KNAR-000 |
 | KNAR-003 | done | M0 | Add staged frontend integration checkpoints | KNAR-002 |
 | KNAR-101 | done | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
-| KNAR-102 | ready | M1 | Structural Composition schemas v1 | KNAR-101 |
+| KNAR-102 | done | M1 | Structural Composition schemas v1 | KNAR-101 |
 | KNAR-103 | ready | M1 | Semantic Composition validation | KNAR-102 |
 | KNAR-104 | ready | M1 | EditOperation v1 schema | KNAR-102 |
 | KNAR-105 | ready | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
@@ -183,7 +183,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-102 — Structural Composition schemas v1
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-101
 - Owner/session: lead
@@ -198,7 +198,17 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: valid fixtures; invalid cases for wrong `kind`, negative and fractional times, missing fields, extra keys, wrong `schemaVersion` type.
 - Verification commands: `cd backend && npm run typecheck && npm test -- schema`
 - Learning checkpoint: explain the difference between a structurally valid and a semantically valid Composition.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `b2b0faa`):
+  - `npm run typecheck`: exit 0. `npm test -- schema`: 42 tests passed. `npm test`: 2 files, 44 tests passed.
+  - Times: every time field uses one schema, a non-negative integer of milliseconds; tests reject negative, fractional, numeric-string, `NaN`, `Infinity`, and `null` values.
+  - Strictness: every object is a strict object; tests reject unknown keys on the Composition, a track, a visual clip, an audio clip, an `AssetRef`, and a `RenderPreset`.
+  - `__fixtures__/spike.composition.json` encodes KNAR-000 (3000 ms image, video range 0–5000 ms, music 0–8000 ms with a 2000 ms fade-out) and parses unchanged. `spike.assets.json` holds the three spike assets with dimensions and durations read from the spike media by ffprobe.
+  - Invalid fixtures, each failing at its expected path: `wrong-kind` (`tracks.0.clips.0.kind`), `negative-time` (`tracks.0.clips.0.durationMs`), `fractional-time` (`tracks.0.clips.1.sourceStartMs`), `missing-field` (`tracks.0.clips.1.sourceEndMs`), `extra-key` (`tracks.0.clips.0`, key `filePath`), `schema-version-string` (`schemaVersion`).
+  - Types in `types.ts` are all `z.infer` of the schemas; `vertical-1080p30` parses with `renderPresetSchema` and is registered in `RENDER_PRESETS`.
+  - Kernel boundary: no kernel file imports Express, `fs`, `child_process`, or any Node module; only `zod` and sibling modules.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual: Mustapha ran the checklist and confirmed it works.
+  - Decisions made here: kernel ID format `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$` (reused by KNAR-104); `AssetRef` `durationMs`, `width`, and `height` are nullable, with per-kind requirements left to KNAR-103; `speed` and `volume` are structurally any finite number, with ranges left to KNAR-103; the spike video clip is encoded with `volume: 0` because the spike drops its audio; preset CRF is 20, provisional until M2.
 
 ### KNAR-103 — Semantic Composition validation
 

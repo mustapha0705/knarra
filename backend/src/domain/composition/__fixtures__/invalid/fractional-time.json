@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "comp-spike",
+  "presetId": "vertical-1080p30",
+  "tracks": [
+    {
+      "id": "track-visual",
+      "kind": "visual",
+      "clips": [
+        {
+          "id": "clip-image-1",
+          "kind": "image",
+          "assetId": "asset-pic",
+          "durationMs": 3000
+        },
+        {
+          "id": "clip-video-1",
+          "kind": "video",
+          "assetId": "asset-vid",
+          "sourceStartMs": 0.5,
+          "sourceEndMs": 5000,
+          "speed": 1,
+          "volume": 0,
+          "durationMs": 5000
+        }
+      ]
+    },
+    {
+      "id": "track-audio",
+      "kind": "audio",
+      "clips": [
+        {
+          "id": "clip-music-1",
+          "kind": "audio",
+          "assetId": "asset-aud",
+          "sourceStartMs": 0,
+          "sourceEndMs": 8000,
+          "timelineStartMs": 0,
+          "volume": 1,
+          "fadeInMs": 0,
+          "fadeOutMs": 2000
+        }
+      ]
+    }
+  ]
+}

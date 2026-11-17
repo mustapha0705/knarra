@@ -120,3 +120,27 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    I ran the manual checklist (`npm run typecheck`, `npm test`, and Export in the browser) and confirmed it works.
+
+---
+
+## KNAR-102 — Structural Composition schemas v1 (2026-11-17)
+
+1. **What problem does this layer solve?**
+   Everything later in the plan (validation, edits, rendering, saving, the LLM planner) needs one agreed shape for "the video to render". This task defines that shape as runtime schemas, so untrusted JSON either becomes a typed `Composition` or is rejected with a list of issues.
+
+2. **What inputs and outputs cross its boundary?**
+   Input: `unknown` data, such as a parsed JSON file. Output: a typed value, or issues that each carry a `path` (for example `tracks.0.clips.1.sourceEndMs`) and a message. The TypeScript types are derived from the schemas with `z.infer`, so there is one definition, not two that can drift.
+
+3. **What invariant does it protect?**
+   Invariant 2 (the Composition is the source of truth for the video) and ADR 0005 (all times are integer milliseconds). Strict objects mean a Composition cannot carry extra fields such as a file path or FFmpeg arguments, and the ID format excludes path separators and shell characters. That is the first half of invariant 4, in place before any LLM exists.
+
+4. **What failure case did the test expose?**
+   The difference between structural and semantic validity. A Composition where a video clip uses source range 0–5000 ms of a 2-second asset, or has speed 100, is structurally valid: every field has the right type. Only a check that compares fields with each other and with the asset catalog can reject it, which is KNAR-103. The tests make this explicit: empty clip lists parse here, because "the visual track must not be empty" is a semantic rule.
+
+5. **How would I diagnose it without Claude?**
+   - Call `compositionSchema.safeParse(data)` and read `result.error.issues`: each has `code`, `path`, and `message`.
+   - An `unrecognized_keys` issue lists the offending key names in `keys`.
+   - Edit a copy of `spike.composition.json` to break one thing and run `npm test -- schema` to see which path is reported.
+
+6. **What did I personally inspect, change, or test?**
+   I ran the manual checklist and confirmed it works.
