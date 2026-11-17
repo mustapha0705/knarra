@@ -125,6 +125,49 @@ Entry points:
 - `probeMedia(path)`: runs ffprobe and returns a validated `MediaProbe` (format, duration, video codec/size/pixel format/color range/color space/frame rate, audio codec/sample rate/channels). Cover art embedded in audio files is not treated as video.
 - `ProcessError.stderr` can contain file paths. It is for server logs and must not be returned to a client.
 
+### Project Persistence (M4)
+
+Decision record: ADR 0010. PostgreSQL, reached through `DATABASE_URL`.
+
+**Layers**
+
+- `backend/src/persistence/db.ts`: a narrow `Database` interface (`query`, `exec`, `transaction`) over a `pg` pool. Values always travel as query parameters.
+- `backend/src/persistence/migrate.ts` and `migrations/NNNN_name.sql`: migrations run in name order, once, each in a transaction with the record that it ran. An applied migration is never edited.
+- `backend/src/persistence/projectRepository.ts`: all SQL for projects and versions. It stores and returns data and makes no validity decisions.
+- `backend/src/projects/service.ts`: the rules. Routes call the service; the service calls the repository.
+- `backend/src/api/projects.ts`: thin routes at `/api/projects`.
+
+**Tables** (`0001_initial.sql`)
+
+| Table | Holds |
+| --- | --- |
+| `projects` | Title, `revision`, `schema_version`, `composition` (jsonb), `editor_state` (jsonb, Canvas and other editor-only state) |
+| `assets` | Per project: kind, display name, duration, dimensions, `has_audio`, and `verified` (false while the metadata is only the browser's claim; true once the server has probed the stored file, from M5) |
+| `project_versions` | Immutable snapshots: composition, editor state, and the asset catalog as they were, with a per-project `version_number`. A trigger rejects every `UPDATE` |
+| `render_jobs` | Bound to a `project_version_id`. Created now; its lifecycle is defined in M6 |
+
+**Rules**
+
+- A new project gets a server-generated ID and an empty, structurally valid Composition whose `id` is the project ID.
+- **Save** (`PUT /api/projects/:id`) must carry `expectedRevision`. The write is `UPDATE ... WHERE id = $1 AND revision = $2`, so of two saves based on the same revision exactly one succeeds; the other gets 409 with `currentRevision` and writes nothing.
+- A save checks structure only (`parseComposition`, asset shapes, size limits). A project being edited may be incomplete, for example an empty timeline.
+- **Version** (`POST /api/projects/:id/versions`) additionally requires `validateComposition` to pass against the project's assets, because versions are what render jobs bind to (invariant 10).
+- Reading a project also goes through `parseComposition`, so data stored under an older schema version is migrated on the way out.
+- The client cannot set `verified`, cannot choose a project ID, and cannot send unknown fields.
+- `editor_state` is opaque to the backend, limited to 2 MB, and is never read by the renderer (invariant 1).
+- Without `DATABASE_URL`, or if the database is unreachable, the server still starts and `/api/projects` answers 503.
+
+| Request | Purpose |
+| --- | --- |
+| `GET /api/projects` | List project summaries, most recently updated first |
+| `POST /api/projects` | `{ title }` creates a project |
+| `GET /api/projects/:id` | Open a project |
+| `PUT /api/projects/:id` | `{ expectedRevision, title, composition, editorState, assets }` saves it |
+| `DELETE /api/projects/:id` | Delete a project and everything it owns |
+| `GET /api/projects/:id/versions` | List versions |
+| `POST /api/projects/:id/versions` | `{ expectedRevision?, label? }` creates an immutable version |
+| `GET /api/projects/:id/versions/:versionId` | Read a version |
+
 ### Synchronous Export API (KNAR-302, temporary)
 
 `backend/src/api/exports.ts`, mounted at `/api/exports`. It exists because the backend has no stored media until M5. KNAR-502 replaces the uploads with stored assets and KNAR-602 replaces the synchronous render with jobs.

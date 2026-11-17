@@ -21,6 +21,7 @@ Knarra is an AI-assisted, non-destructive video editor. The Canvas organizes sou
 - Bind render jobs to immutable project versions.
 - The Composition kernel (`backend/src/domain/composition`) must not import Express, `fs`, `child_process`, or database code. The render compiler (`backend/src/render/compiler`) imports only the kernel. `boundary.test.ts` enforces both.
 - Only `backend/src/media` starts FFmpeg or ffprobe.
+- SQL lives only in `backend/src/persistence`. Never edit a migration that has been applied; add a new one.
 - All Composition times are integer milliseconds (ADR 0005).
 - Python media intelligence (`media-intelligence/`, from M9) is analysis-only: invoked as a CLI process with request/result JSON files, output validated by Node before persistence, never owns project state (ADR 0007).
 
@@ -60,12 +61,13 @@ Frontend (`frontend/`):
 Backend (`backend/`):
 - Install: `npm install`
 - Dev server: `npm run dev` (port 3001; runs `src/server.js` through `tsx` so it can import the TypeScript modules; requires `ffmpeg` and `ffprobe` on PATH)
+- Database: set `DATABASE_URL` in `backend/.env` (see `backend/.env.example`). `npm run migrate` applies pending migrations; the dev server also applies them on start. Without `DATABASE_URL` the server starts and `/api/projects` answers 503.
 - Type-check: `npm run typecheck` (`tsc --noEmit`; TypeScript files are strict, existing JavaScript is allowed but not checked)
-- Unit tests: `npm test` (Vitest, `src/**/*.test.ts`); one area: `npm test -- <name>`, for example `npm test -- schema`
+- Unit tests: `npm test` (Vitest, `src/**/*.test.ts`); one area: `npm test -- <name>`, for example `npm test -- schema`. Database tests run on an embedded PostgreSQL (PGlite) and need no server; set `TEST_DATABASE_URL` to an empty scratch database to also run them against a real server
 - Integration tests: `npm run test:integration` (`src/**/*.integration.test.ts`; runs real `ffmpeg` and `ffprobe`, which must be on PATH; writes only to a temporary directory)
 - Everything: `npm run test:all`
 - Backend verification: `npm run typecheck && npm run test:all`
 
 Backend commands verified on 2026-11-17 (KNAR-101: TypeScript 7.0.2, Vitest 5.1.0, Zod 4.6.7, tsx 4.23.15; KNAR-301: `@types/node` 24, integration tests).
 
-Not yet available: backend lint, migrations, browser (end-to-end) tests. Later tasks add them and must update this section.
+Not yet available: backend lint, browser (end-to-end) tests. Later tasks add them and must update this section.

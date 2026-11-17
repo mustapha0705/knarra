@@ -19,6 +19,7 @@ import {
 } from "../domain/composition/index.js";
 import { executeRenderPlan, isCancellation, probeMedia, type MediaProbe } from "../media/index.js";
 import { compileRenderPlan, type RenderAsset } from "../render/compiler/index.js";
+import { jsonErrors, jsonNotFound } from "./errors.js";
 
 // KNAR-302: project-driven synchronous Export.
 //
@@ -303,6 +304,8 @@ export function createExportsRouter(options: ExportsRouterOptions = {}): Router 
     }
   });
 
+  router.use(jsonNotFound);
+  router.use(jsonErrors);
   return router;
 }
 

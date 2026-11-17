@@ -21,7 +21,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-201 | done | M2 | Deterministic render compiler | M1 |
 | KNAR-301 | done | M3 | FFmpeg executor and media probe | KNAR-201 |
 | KNAR-302 | review | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
-| KNAR-401 | planned | M4 | Project persistence and versions | M1 |
+| KNAR-401 | review | M4 | Project persistence and versions | M1 |
 | KNAR-402 | planned | M4 | Project save and reopen integration (frontend checkpoint) | KNAR-401, KNAR-302 |
 | KNAR-501 | planned | M5 | Asset ingestion and proxies | KNAR-301, KNAR-401 |
 | KNAR-502 | planned | M5 | Asset ingestion and proxy integration (frontend checkpoint) | KNAR-501, KNAR-402 |
@@ -433,13 +433,57 @@ Continues on branch `feat/render-compiler`. Code lives in `backend/src/media/`.
 
 ---
 
+## M4: Project Persistence and Versions
+
+Branch `feat/project-persistence`, stacked on `feat/render-compiler`. Code lives in `backend/src/persistence/`, `backend/src/projects/`, and `backend/src/api/projects.ts`.
+
+### KNAR-401 — Project persistence and versions
+
+- Status: review
+- Milestone: M4
+- Depends on: M1
+- Owner/session: lead
+- Intended files: `backend/src/persistence/{db.ts,migrate.ts,cli.ts,projectRepository.ts,persistence.test.ts}`, `backend/src/persistence/migrations/0001_initial.sql`, `backend/src/persistence/testing/pglite.ts`, `backend/src/projects/service.ts`, `backend/src/api/{projects.ts,projects.test.ts,errors.ts,exports.ts}`, `backend/src/server.js`, `backend/package.json`, `backend/package-lock.json`, `backend/.env.example`, `docs/decisions/0010-project-persistence-model.md`, `docs/engineering/ARCHITECTURE.md`, `CLAUDE.md` (Commands)
+- Goal: projects are stored in PostgreSQL and can be created, saved, reopened, versioned, and protected from a stale update.
+- Non-goals: uploads or media storage (M5); render-job behavior (M6; only its table is created); authentication or per-user ownership; connecting the frontend (KNAR-402).
+- Approved dependencies: `pg` (runtime), `@types/pg` and `@electric-sql/pglite` (development only), and `dotenv` moved to a runtime dependency; added under the overnight discretion grant of 2026-11-17.
+- Acceptance criteria:
+  - Migrations create tables for projects, assets, immutable project versions, and render jobs, and are applied in order, once, each in a transaction.
+  - Repository and service boundaries: SQL only in the repository; validation only in the service; routes contain neither.
+  - Save and reopen APIs exist.
+  - A save names the numeric revision it was based on; a save based on an older revision is refused and writes nothing.
+  - Versions are created explicitly and cannot be changed afterwards.
+  - Canvas and other editor state is stored separately from the Composition.
+  - Gate: a project can be saved, reopened, modified, versioned, and protected from a stale update.
+- Required tests: migration tests; repository tests including the stale-write test and concurrent saves; API tests for the gate, validation, and error responses.
+- Verification commands: `cd backend && npm run typecheck && npm run test:all`
+- Learning checkpoint: explain how the revision number prevents one editor from silently overwriting another, and why a version must be valid when a working save need not be.
+- Completion evidence (2026-11-17, branch `feat/project-persistence`, against base `11092ad`). Status is `review`, not `done`: all automated tests pass on an embedded PostgreSQL, but the connection to a real PostgreSQL server has not been exercised, because the local server requires a password the agent did not have and did not look for.
+  - `npm run typecheck`: exit 0. `npm test`: 14 files, 418 tests passed. `npm run test:integration`: 2 files, 40 tests passed.
+  - Migrations (5 tests): `0001_initial.sql` creates `projects`, `assets`, `project_versions`, `render_jobs`; a second run applies nothing; only new migrations run, in name order; a failing migration is rolled back completely and not recorded; a database with an unknown migration is refused.
+  - Repository (28 tests): create, read, list, delete with cascade; save stores composition, editor state, title, and ordered assets and bumps the revision; awkward text (quotes, `DROP TABLE`, backslashes, non-Latin text) round-trips as data.
+  - Stale-write protection: a save based on revision 1 after another save is refused with `currentRevision: 2` and changes nothing, including the asset list; of two concurrent saves from the same revision exactly one is saved.
+  - Versions: numbered 1, 2, ... per project; unchanged after later saves; a direct SQL `UPDATE` of a version fails with "project versions are immutable"; a snapshot of an outdated revision is refused; five concurrent snapshots get numbers 1 to 5.
+  - Constraints: a path-like project ID, an empty title, an unknown asset kind, a negative duration, an asset or render job with a missing parent, and an unknown job status are rejected by the database itself.
+  - API gate (37 tests, real HTTP): one test walks create, save, reopen (equal to what was saved), version, modify, version unchanged, stale save refused with 409 and nothing written, and list.
+  - Validation: a working save accepts an empty timeline and a not-yet-renderable composition; it rejects a structurally invalid composition, a future schema version, another project's composition, an asset with a path, an asset claiming `verified`, duplicate asset IDs, non-object editor state, and unknown fields, each with 422 and no write. A version of a project with an empty timeline is refused with `VISUAL_TRACK_EMPTY`.
+  - Error responses: malformed JSON answers 400 as JSON with no stack trace; an oversized body answers 413 as JSON; unknown routes answer 404 as JSON; without a database every route answers 503 naming `DATABASE_URL`.
+  - Server smoke test by the agent: started without `DATABASE_URL`; the log says project storage is disabled, `GET /` 200, `GET /api/projects` 503, `POST /api/exports` 201.
+  - Fix to KNAR-302 found here: the export and project routers are now mounted before the general body parser, whose 100 kB limit would otherwise have rejected a larger Composition before the router's own 2 MB limit applied; both routers now answer unknown routes and parser errors as JSON.
+  - Dependencies added under the overnight discretion grant: `pg` (runtime), `dotenv` (moved to runtime), `@types/pg` and `@electric-sql/pglite` (development). ADR 0010 records the persistence model and the choice to test on PGlite.
+  - Not verified: the `pg` pool adapter, and true multi-connection concurrency, against a PostgreSQL server. To verify: create an empty scratch database, set `TEST_DATABASE_URL`, and run `npm test -- persistence`; the same suite then runs on both engines.
+  - Not done, by design: no authentication or ownership; `assets` rows are client-reported and unverified until M5; `render_jobs` has no behavior until M6.
+  - Frontend checks omitted: no frontend file changed and the frontend does not call these routes yet (KNAR-402).
+  - Manual steps for Mustapha: (1) create a database, for example `createdb -U postgres knarra`; (2) copy `backend/.env.example` to `backend/.env` and set `DATABASE_URL`; (3) `npm run migrate` and confirm it reports `0001_initial.sql`; (4) set `TEST_DATABASE_URL` to an empty scratch database and run `npm test -- persistence`.
+
+---
+
 ## M3–M9: Headline Tasks
 
 Expand each into full task entries (and split as needed) at the start of its milestone.
 
 Frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602) connect the existing React frontend to the backend contract its milestone has just stabilized. Each is tested in the browser before the next milestone starts. They do not redesign the approved UI (ADR 0008).
 
-- **KNAR-401 (M4):** PostgreSQL migrations, repositories, save/reopen API, numeric-revision stale-write protection, immutable versions.
 - **KNAR-402 (M4, frontend checkpoint) — Project save and reopen integration.** Depends on KNAR-401 and KNAR-302. The Dashboard and Editor first stop relying entirely on in-memory project data:
   - Dashboard project creation creates backend project records.
   - The current project and its Composition are saved.

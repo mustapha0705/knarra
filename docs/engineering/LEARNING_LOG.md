@@ -318,3 +318,28 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was implemented overnight under my delegation; my browser test is still to do, so the task is in review.
+
+---
+
+## KNAR-401 — Project persistence and versions (2026-11-17)
+
+1. **What problem does this layer solve?**
+   Until now a project lived only in the browser tab. This stores it in PostgreSQL so it can be reopened, and adds two guarantees a file on disk would not give: a save cannot silently overwrite someone else's newer save, and a version, once made, never changes.
+
+2. **What inputs and outputs cross its boundary?**
+   In: a title to create a project; to save, the revision the client started from plus the Composition, the editor state, and the asset list. Out: the stored project with its new revision, or 409 with the current revision, or 422 with issues. Three layers handle it: routes (HTTP only), a service (the rules), and a repository (the SQL).
+
+3. **What invariant does it protect?**
+   Invariant 9 (versions are immutable snapshots that reference assets instead of copying media) and invariant 10 (a render job binds to an immutable version). The database enforces both itself: a trigger rejects any `UPDATE` of a version, and a render job row cannot exist without a version.
+
+4. **What failure case did the test expose?**
+   The stale write. Two editors open revision 1. The first saves and the project becomes revision 2. The second, still holding revision 1, saves. Without a check the first editor's work is gone with no error anywhere. With the revision in the `WHERE` clause of the update, the second save matches zero rows, is reported as a conflict, and writes nothing, not even its asset list. A second lesson: "can be saved" and "can be rendered" are different. A project with an empty timeline must be saveable, so saving checks structure only; making a version runs full validation, because a version is a promise that it can be rendered.
+
+5. **How would I diagnose it without Claude?**
+   - `psql` into the database: `SELECT id, title, revision, updated_at FROM projects;` and `SELECT name FROM schema_migrations;`.
+   - A 409 response carries `currentRevision`; compare it with the revision the client sent.
+   - `SELECT project_id, version_number, project_revision FROM project_versions ORDER BY 1, 2;` shows what each version captured.
+   - `npm test -- persistence` runs the repository tests with no server needed.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was implemented overnight under my delegation. I still need to connect it to my PostgreSQL server, so it is in review.
