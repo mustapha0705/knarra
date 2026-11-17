@@ -16,6 +16,9 @@ This describes the target architecture. `CURRENT_STATE.md` describes what exists
 | Jobs | `backend/src/jobs` | In-process queue (concurrency 1), state machine, SSE progress | M6 |
 | API | `backend/src/api` | Thin Express routes: parse, call a service, map errors | M4–M7 |
 | Planner | `backend/src/planner` | `EditPlanner` provider interface; emits `EditOperation`s only | M8 |
+| Analysis runner | `backend/src/analysis` | `AnalysisRunner` interface; process implementation invokes the Python CLI | M9 |
+| Analysis contracts | `backend/src/domain/analysis` | Versioned Zod schemas for analysis results; validation before persistence | M9 |
+| Media intelligence (Python) | `media-intelligence/` (`knarra_mi`) | Analysis-only: shots, beats, transcription, motion/color, embeddings, StyleProfile, similarity | M9–M10 |
 
 ## Dependency Direction
 
@@ -26,12 +29,16 @@ api ──► services ──► domain/composition
                  ├─► persistence
                  ├─► storage
                  ├─► jobs
-                 └─► planner ──► domain/composition
+                 ├─► planner ──► domain/composition
+                 └─► analysis ──► domain/analysis
+                         │
+                         └─(process boundary: request/result JSON files)─► media-intelligence (Python)
 ```
 
 - `domain/composition` imports nothing outside itself and Zod. No Express, `fs`, `child_process`, or database code. It can later be extracted into a shared package for the frontend (ADR 0006).
 - `render/compiler` imports only the domain. It performs no file writes and starts no processes.
 - Route handlers contain no persistence or FFmpeg logic.
+- The Python package depends on nothing in the backend and the backend imports nothing from it. They share only the versioned JSON contract.
 
 ## Data Flows
 
@@ -40,6 +47,8 @@ api ──► services ──► domain/composition
 **Render:** user requests export → immutable project version → `compileRenderPlan` → executor spawns FFmpeg with argument array → `-progress pipe:1` parsed into job progress → ffprobe verifies output → export stored → download authorized.
 
 **Ingest:** upload → original stored immutably under a server-generated path → ffprobe metadata persisted → thumbnails and proxies generated as derived artifacts.
+
+**Analyze (M9+):** service requests an analysis for an asset → `AnalysisRunner` writes `request.json` to a per-job working directory → spawns `python -m knarra_mi run --request … --result …` → reads `result.json` → Zod validation of contract and schema versions → persisted as a derived analysis record → read by the UI and planner. Analysis never changes the Composition; edits it inspires still go through `EditOperation`s.
 
 ## Architecture Invariants
 
@@ -55,6 +64,7 @@ api ──► services ──► domain/composition
 10. Every render job binds to an immutable project version.
 11. The first production renderer supports a single sequential visual track and one background-audio track. Additional layers are deferred.
 12. The current frontend is evolved incrementally, not regenerated from the design export.
+13. The Python media-intelligence package is analysis-only. It never mutates projects, Timelines, Compositions, or source media, and its output is versioned and validated by Node before persistence (ADR 0007).
 
 Changing an invariant requires a new ADR.
 
@@ -106,12 +116,48 @@ Entry points:
 | `EditOperation` keyed by `referenceId` | `EditOperation` keyed by stable clip/asset IDs; handles are display aliases |
 | `canvasNodes`, `folders` | Canvas state, stored separately from the Composition |
 
+## Media Intelligence Subsystem (M9+)
+
+Decision record: ADR 0007. Scheduled after the M7 vertical slice.
+
+**Responsibilities:** scene and shot detection, beat and tempo analysis, transcription, motion and color analysis, visual embeddings, reference-video `StyleProfile` generation, asset similarity and ranking.
+
+**Not responsibilities:** project CRUD, Composition ownership, edit operations, render orchestration, render-job APIs. These stay in Node/TypeScript.
+
+**Package layout (target):**
+
+```text
+media-intelligence/
+├── pyproject.toml
+├── src/knarra_mi/
+│   ├── contracts/     versioned request/result models (one module per analysis kind)
+│   ├── analyzers/     pure functions: typed inputs → typed results; no I/O beyond reading inputs
+│   ├── dispatch.py    dispatch(request) -> result; transport-independent
+│   └── cli.py         `run --request <file> --result <file>`; thin adapter over dispatch
+└── tests/
+    └── fixtures/contracts/   golden result JSON shared with the Node contract tests
+```
+
+A later `http/` adapter (FastAPI) and queue worker would wrap the same `dispatch` without changing `analyzers/`.
+
+**Contract envelope:**
+
+- Request: `{ contractVersion, requestId, analysisKind, inputs: [{ assetId, path, mediaKind }], params, scratchDir? }`. Paths are server-resolved originals or proxies, opened read-only. No project or Composition data is sent.
+- Result: `{ contractVersion, requestId, analysisKind, schemaVersion, analyzer: { name, version }, status: 'ok' | 'error', result?, errors?, diagnostics }`.
+- Exit codes: `0` ok, `2` invalid request, `3` analysis failure. The result file is written on failure whenever possible.
+
+**Node side:**
+
+- `AnalysisRunner` interface; `ProcessAnalysisRunner` uses `spawn()` with an argument array, a per-job working directory, `AbortSignal`, timeout, bounded stderr, and cleanup.
+- `backend/src/domain/analysis` holds Zod schemas per analysis kind and version. Results failing validation, with unknown versions, or with a mismatched `requestId`/`analysisKind` are rejected and not persisted.
+- Results are derived artifacts keyed by asset ID, analysis kind, schema version, analyzer version, and input fingerprint.
+
 ## Storage Layout (target, M5)
 
 ```text
 storage/
 ├── originals/<assetId>/   immutable uploaded media
-├── derived/<assetId>/     thumbnails, posters, proxies
+├── derived/<assetId>/     thumbnails, posters, proxies, large analysis artifacts (e.g. embeddings)
 └── exports/<renderJobId>/ rendered MP4s
 ```
 
@@ -123,3 +169,4 @@ All paths are generated on the server from IDs. Uploaded filenames are kept only
 - Uploaded filenames and metadata are untrusted; they never become filesystem paths or FFmpeg arguments.
 - FFmpeg receives only compiler-generated arguments containing server-resolved paths.
 - CORS is restricted and the server binds to a configured host before the UI is connected to real services (M6/M7).
+- Python analysis output is untrusted input to Node: validated before persistence, never executed, and never used as a filesystem path or FFmpeg argument.

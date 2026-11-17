@@ -21,6 +21,7 @@ Knarra is an AI-assisted, non-destructive video editor. The Canvas organizes sou
 - Bind render jobs to immutable project versions.
 - The Composition kernel (`backend/src/domain/composition`) must not import Express, `fs`, `child_process`, or database code.
 - All Composition times are integer milliseconds (ADR 0005).
+- Python media intelligence (`media-intelligence/`, from M9) is analysis-only: invoked as a CLI process with request/result JSON files, output validated by Node before persistence, never owns project state (ADR 0007).
 
 ## Working Rules
 - Work on one task ID from `docs/engineering/TASKS.md` at a time.
@@ -44,7 +45,7 @@ Verified on 2026-11-16 (Windows 11, Node 24.12.0, npm 11.12.1). Shell is PowerSh
 
 Frontend (`frontend/`):
 - Install: `npm install`
-- Dev server: `npm run dev` (proxies `/api` to `http://localhost:3001` once the KNAR-001 change is committed)
+- Dev server: `npm run dev` (proxies `/api` to `http://localhost:3001`)
 - Lint: `npm run lint`
 - Type-check: `npx tsc -p tsconfig.app.json --noEmit` and `npx tsc -p tsconfig.node.json --noEmit`
 - Build: `npm run build`

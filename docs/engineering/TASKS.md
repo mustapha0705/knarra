@@ -10,7 +10,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | --- | --- | --- | --- | --- |
 | KNAR-000 | done | M0 | Minimal Export spike | none |
 | KNAR-001 | ready | M0 | Make the spike reproducible from Git | KNAR-000 |
-| KNAR-002 | review | M0 | Planning documents | KNAR-000 |
+| KNAR-002 | done | M0 | Planning documents | KNAR-000 |
 | KNAR-101 | ready | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
 | KNAR-102 | ready | M1 | Structural Composition schemas v1 | KNAR-101 |
 | KNAR-103 | ready | M1 | Semantic Composition validation | KNAR-102 |
@@ -24,7 +24,11 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-601 | planned | M6 | Asynchronous render jobs | KNAR-301, KNAR-401 |
 | KNAR-701 | planned | M7 | Frontend vertical slice | M4–M6 |
 | KNAR-801 | planned | M8 | LLM planner | M7 |
-| KNAR-901 | planned | M9 | Reference analysis | M8 |
+| KNAR-901 | planned | M9 | Python package skeleton, contract envelope, CLI | KNAR-701 |
+| KNAR-902 | planned | M9 | Node analysis contracts and process runner | KNAR-901 |
+| KNAR-903 | planned | M9 | Persist validated analysis results | KNAR-902, KNAR-401 |
+| KNAR-904 | planned | M9 | Shot/scene detection and StyleProfileV0 | KNAR-903 |
+| KNAR-1001 | planned | M10 | Further analyzers (one task each) | KNAR-904 |
 
 ---
 
@@ -49,7 +53,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 - Completion evidence:
   - Commits `e7d3fb0` and `01013eb`.
   - ffprobe of `knarra-demo.mp4`: H.264 High 1080x1920, 30/1 fps, SAR 1:1, AAC LC stereo, duration 8.000000.
-  - Gaps carried forward: `render.js`/`verify.js` are gitignored and were never committed (fresh clone fails on import); frontend export wiring is uncommitted (both fixed by KNAR-001); output is tagged `yuvj420p`/`color_range=pc` (M2/M3); the clip's own audio is dropped (M2 decision).
+  - Gaps carried forward: `render.js`/`verify.js` are gitignored and were never committed (fresh clone fails on import); frontend export wiring was uncommitted (since committed in `35d97be`; the backend gap is fixed by KNAR-001); output is tagged `yuvj420p`/`color_range=pc` (M2/M3); the clip's own audio is dropped (M2 decision).
 
 ### KNAR-001 — Make the spike reproducible from Git
 
@@ -57,8 +61,9 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 - Milestone: M0
 - Depends on: KNAR-000
 - Owner/session: lead
-- Intended files: `backend/.gitignore`, `backend/ffmpeg-practice/{render.js,verify.js,command.md,commands.txt,Knarra_Four_Hour_Minimal_Render_Spike.md}`, `backend/package.json`, plus the existing uncommitted frontend export diff (`ProjectEditor.tsx`, `EditorToolbar.tsx`, `Editor.module.css`, `vite.config.ts`)
+- Intended files: `backend/.gitignore`, `backend/ffmpeg-practice/{render.js,verify.js,command.md,commands.txt,Knarra_Four_Hour_Minimal_Render_Spike.md}`, `backend/package.json`
 - Goal: a fresh clone contains every file the Export spike needs except media.
+- Note: the frontend export wiring originally in this task's scope was already committed in `35d97be`.
 - Non-goals: changing render behavior, refactoring `server.js`, adding tests or dependencies, committing media.
 - Acceptance criteria:
   - `backend/.gitignore` ignores only media and generated outputs in `ffmpeg-practice/` (`*.mp4`, `*.mp3`, `*.png`), not the scripts and notes.
@@ -73,11 +78,11 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 
 ### KNAR-002 — Planning documents
 
-- Status: review
+- Status: done
 - Milestone: M0
 - Depends on: KNAR-000
 - Owner/session: lead
-- Intended files: `CLAUDE.md`, `docs/engineering/*.md`, `docs/decisions/0001`–`0006`
+- Intended files: `CLAUDE.md`, `docs/engineering/*.md`, `docs/decisions/0001`–`0006` (0007 and these status updates follow in a separate docs commit)
 - Goal: commit the approved engineering plan.
 - Non-goals: any product source, dependency, or configuration change.
 - Acceptance criteria:
@@ -86,7 +91,10 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 - Required tests: none (documentation only).
 - Verification commands: `git status`; `cd frontend && npx tsc -p tsconfig.app.json --noEmit && npx eslint .`
 - Learning checkpoint: explain the 12 invariants and why M1 must be built by one session.
-- Completion evidence: (to be filled)
+- Completion evidence:
+  - Commit `35d97be` (`docs: establish Knarra backend architecture and execution plan`) adds `CLAUDE.md`, `docs/engineering/*.md`, and ADRs 0001–0006.
+  - Before commit: `npx tsc -p tsconfig.app.json --noEmit`, `npx tsc -p tsconfig.node.json --noEmit`, and `npx eslint .` in `frontend/` all passed.
+  - Deviation: the same commit also included the playbook (`Knarra_Claude_Code_Serious_Development_Playbook.md`) and the KNAR-000 frontend export wiring (`ProjectEditor.tsx`, `EditorToolbar.tsx`, `Editor.module.css`, `vite.config.ts`). Those are KNAR-000 work, not new product changes, and KNAR-001's scope was reduced accordingly.
 
 ---
 
@@ -213,4 +221,8 @@ Expand each into full task entries (and split as needed) at the start of its mil
 - **KNAR-601 (M6):** in-process job queue, state machine, SSE progress, cancel/retry, authorized download, restricted CORS.
 - **KNAR-701 (M7):** `toComposition` adapter, `Editor*` type renames, all editor mutations via `EditOperation`s, browser acceptance flow.
 - **KNAR-801 (M8):** `EditPlanner` interface, provider structured output, 20+ fixed evaluation prompts, adversarial output tests.
-- **KNAR-901 (M9):** `StyleProfileV0` analysis display.
+- **KNAR-901 (M9):** `media-intelligence/` package (`knarra_mi`): `pyproject.toml`, contract envelope models, `dispatch`, CLI `run --request --result`, exit codes, a trivial `probe` analysis kind, golden contract fixtures, Python tests.
+- **KNAR-902 (M9):** `backend/src/domain/analysis` Zod schemas; `AnalysisRunner` + `ProcessAnalysisRunner` (`spawn`, working directory, `AbortSignal`, timeout, cleanup); Node tests against the shared golden fixtures, plus malformed/wrong-version/mismatched-ID rejection.
+- **KNAR-903 (M9):** analysis-record migration and repository keyed by asset, kind, schema version, analyzer version, and input fingerprint; only validated results persist.
+- **KNAR-904 (M9):** shot/scene detection analyzer and `StyleProfileV0`; source-media checksum test; StyleProfile shown in the UI as analysis only.
+- **KNAR-1001 (M10):** beat/tempo, transcription, motion/color, visual embeddings, similarity/ranking. Split into one task per analyzer when M10 starts.

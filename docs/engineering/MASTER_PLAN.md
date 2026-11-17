@@ -5,8 +5,11 @@ Milestones are dependency-ordered. Each ends with a gate that must be demonstrat
 ```text
 M0 baseline ─► M1 composition kernel ─► M2 render compiler ─► M3 executor + probe
    ─► M4 persistence + versions ─► M5 ingestion + proxies ─► M6 render jobs
-   ─► M7 frontend vertical slice ─► M8 LLM planner ─► M9 reference analysis
+   ─► M7 frontend vertical slice ─┬─► M8 LLM planner
+                                  └─► M9 media-intelligence foundation + StyleProfile ─► M10 further analyzers
 ```
+
+M8 and M9 both depend only on M7 and touch independent modules, so they may proceed in parallel worktrees once their contracts are committed.
 
 M1–M4 are built sequentially by one lead session. Parallel worktrees are allowed only after the shared contracts they depend on are committed (see `AGENT_WORKFLOW.md`).
 
@@ -79,9 +82,26 @@ Deliver: `EditPlanner` provider interface; compact planner input; provider struc
 
 Gate: invalid or malicious model output cannot modify project state or reach FFmpeg.
 
-## M9: Reference Analysis
+## M9: Media-Intelligence Foundation and Reference Analysis
 
-After the vertical slice is reliable: `StyleProfileV0` (duration, aspect ratio, frame rate, scene cuts, average shot duration), displayed as analysis before being used to automate edits.
+Starts only after the M7 vertical slice is reliable. Boundary defined by ADR 0007.
+
+Deliver:
+
+- `media-intelligence/` Python package (`knarra_mi`) with `contracts/`, `analyzers/`, `dispatch`, and the CLI `python -m knarra_mi run --request <file> --result <file>`.
+- Versioned contract envelope; shared golden fixtures validated by both Python and Node tests.
+- `backend/src/domain/analysis` Zod schemas and `backend/src/analysis` `AnalysisRunner` with a process implementation (`spawn`, working directory, `AbortSignal`, timeout, cleanup).
+- Persistence of validated results as derived analysis records.
+- First analyzers: shot/scene detection, then `StyleProfileV0` (duration, aspect ratio, frame rate, scene cuts, average shot duration) for a reference video.
+- UI displays StyleProfile as analysis only; no automatic edits.
+
+Gate: Node runs a real analysis on a fixture video through the CLI, validates and persists the result; malformed, wrong-version, and failed results are rejected without persistence; a checksum test proves source media is unchanged; analyzers run in Python tests without Node.
+
+## M10: Further Media Intelligence
+
+Each analyzer is its own task with its own contract version: beat and tempo analysis, transcription, motion and color analysis, visual embeddings, asset similarity and ranking. Planner integration (analysis summaries as planner context) uses the same validated records.
+
+Gate per analyzer: golden fixture contract test on both sides; real-media fixture test in Python; Node rejection tests.
 
 ## Deferred
 
@@ -93,3 +113,4 @@ After the vertical slice is reliable: `StyleProfileV0` (duration, aspect ratio, 
 - Extracting the kernel into a shared workspace package (ADR 0006).
 - `.gitattributes` / line-ending policy.
 - Continuous integration.
+- Running media intelligence behind FastAPI or a job queue (requires a new ADR; analysis modules stay unchanged per ADR 0007).

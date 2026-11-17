@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-16 at commit `01013eb` (working tree had uncommitted frontend export changes; see Known Defects).
+Last verified: 2026-11-16 at commit `35d97be`.
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -43,7 +43,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 - **`executeEditPlan`:** `console.info` returning `{status:'not-connected'}` (`planner.ts:334-337`).
 - **Save indicator:** 550 ms timer; nothing is persisted (`ProjectEditor.tsx:161-169`).
 - **Workspace:** seeded fake projects and statuses (`frontend/src/features/workspace/data.ts`); workspace settings never reach the editor.
-- **Export:** downloads the fixed demo MP4; the project is not sent (`ProjectEditor.tsx:184-214`, uncommitted).
+- **Export:** downloads the fixed demo MP4; the project is not sent (`ProjectEditor.tsx:184-214`; dev-only `/api` proxy in `frontend/vite.config.ts`).
 - **Other:** "Analyze style", Markdown/Link/Sandbox sources, feedback, sign-out are toasts; waveforms are fake; `CanvasNode.scale/rotation/groupId`, `TimelineClip.effects`, `EditorProject.instructions` are unused.
 
 ## Absent
@@ -54,6 +54,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 - Zod or any runtime schema validation.
 - Backend TypeScript, backend linting, CI, pre-commit hooks, Prettier, `.editorconfig`.
 - `.env.example`, configuration loading (port is hardcoded `3001`), structured logging.
+- Python media intelligence: no code yet (planned for M9, ADR 0007). Python 3.14.2 is installed on the development machine.
 
 ## Baseline Checks (2026-11-16)
 
@@ -68,7 +69,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 ## Known Defects
 
 1. **Fresh clone cannot start the backend.** `backend/src/server.js:4` imports `../ffmpeg-practice/render.js`, but `backend/.gitignore:3` ignores `ffmpeg-practice/`. No commit has ever included it. (KNAR-001)
-2. **Frontend export wiring is uncommitted.** `ProjectEditor.tsx` (`handleExport`), `EditorToolbar.tsx` (busy state), `Editor.module.css`, and the `/api` proxy in `vite.config.ts`. (KNAR-001)
+2. ~~**Frontend export wiring is uncommitted.**~~ Resolved: committed in `35d97be`.
 3. **Output is tagged full range.** `knarra-demo.mp4` probes as `yuvj420p`, `color_range=pc`, despite `-pix_fmt yuv420p`. The source `vid.mp4` is full-range `yuvj420p`. `verify.js` checks neither pixel format nor range. (M2/M3)
 4. **Spike drops the video clip's own audio** (`concat ... a=0`); no `aresample`/channel normalization; libx264 defaults (no `-crf`/`-preset`). (M2 decision)
 5. **Open CORS and all-interface bind.** `cors()` with no options; `app.listen(PORT)` without host. Any page can trigger a CPU-heavy render. Acceptable only for local development. (M6/M7)
