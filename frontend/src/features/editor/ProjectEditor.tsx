@@ -99,6 +99,8 @@ export function ProjectEditor({ projectTitle, onHome }: ProjectEditorProps) {
   const [assetQuery, setAssetQuery] = useState('')
   const [timelineZoom, setTimelineZoom] = useState(42)
   const [saveState, setSaveState] = useState('Saved')
+  const [exporting, setExporting] = useState(false)
+  const exportingRef = useRef(false)
 
   const [prompt, setPrompt] = useState('')
   const [plan, setPlan] = useState<EditPlan | null>(null)
@@ -170,6 +172,45 @@ export function ProjectEditor({ projectTitle, onHome }: ProjectEditorProps) {
     const id = uid('toast')
     setToasts((current) => [...current, { id, text, tone }])
     setTimeout(() => setToasts((current) => current.filter((entry) => entry.id !== id)), 4200)
+  }
+
+  /* ---------- export ---------- */
+
+  /**
+   * Spike: asks the backend to render the fixed FFmpeg demo and saves the
+   * returned MP4. The ref blocks a second click that lands before React
+   * re-renders the button as disabled.
+   */
+  const handleExport = async () => {
+    if (exportingRef.current) return
+    exportingRef.current = true
+    setExporting(true)
+
+    try {
+      const response = await fetch('/api/demo-render', { method: 'POST' })
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(body?.error ?? `Render failed (${response.status})`)
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'knarra-demo.mp4'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 0)
+
+      toast('knarra-demo.mp4 downloaded')
+    } catch (error) {
+      console.error(error)
+      toast('Export failed. Check the render server and try again.', 'warn')
+    } finally {
+      exportingRef.current = false
+      setExporting(false)
+    }
   }
 
   /* ---------- import ---------- */
@@ -804,7 +845,8 @@ export function ProjectEditor({ projectTitle, onHome }: ProjectEditorProps) {
         onRedo={redo}
         onAssetQueryChange={setAssetQuery}
         onTogglePlay={togglePlay}
-        onExport={() => toast('Export isn’t connected in this prototype.', 'warn')}
+        exporting={exporting}
+        onExport={handleExport}
         onHome={onHome}
         {...addSourcesHandlers}
       />

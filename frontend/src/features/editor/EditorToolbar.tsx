@@ -23,6 +23,7 @@ type EditorToolbarProps = AddSourcesHandlers & {
   canRedo: boolean
   assetQuery: string
   playing: boolean
+  exporting: boolean
   onTitleChange: (title: string) => void
   onModeChange: (mode: EditorMode) => void
   onToggleMenu: () => void
@@ -44,6 +45,7 @@ export function EditorToolbar({
   canRedo,
   assetQuery,
   playing,
+  exporting,
   onTitleChange,
   onModeChange,
   onToggleMenu,
@@ -179,8 +181,14 @@ export function EditorToolbar({
           {playing ? <PauseIcon /> : <PlayIcon />}
         </button>
 
-        <button type="button" className={styles.exportButton} onClick={onExport}>
-          Export
+        <button
+          type="button"
+          className={styles.exportButton}
+          onClick={onExport}
+          disabled={exporting}
+          aria-busy={exporting}
+        >
+          {exporting ? 'Exporting…' : 'Export'}
         </button>
       </div>
     </div>
