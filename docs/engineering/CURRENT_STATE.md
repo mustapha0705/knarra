@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-16 at commit `35d97be`.
+Last verified: 2026-11-17 at commit `af1ca7b` plus the KNAR-001 changes.
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -34,8 +34,8 @@ This document records what genuinely exists. Update it whenever a task changes w
 | Local planner | Deterministic regex parser: `@` mentions, mm:ss ranges, speed, music intent | `frontend/src/features/editor/planner.ts:84-161` |
 | Review-before-apply | Plan validated, shown in `PlanCard`, applied only without errors | `PlanCard.tsx`, `ProjectEditor.tsx:717-778` |
 | Demo render endpoint | `POST /api/demo-render`; global `rendering` flag (409 if busy); `res.download` of fixed MP4 | `backend/src/server.js:20-49` |
-| FFmpeg spike | `spawn('ffmpeg', args)` with argument array, no shell; trim/setpts, scale/pad 1080x1920, setsar, fps=30, format=yuv420p, concat, atrim/afade, AAC 192k, `+faststart` | `backend/ffmpeg-practice/render.js` (gitignored) |
-| Spike verification | ffprobe checks duration ±0.1 s and 1080x1920 | `backend/ffmpeg-practice/verify.js` (gitignored) |
+| FFmpeg spike | `spawn('ffmpeg', args)` with argument array, no shell; trim/setpts, scale/pad 1080x1920, setsar, fps=30, format=yuv420p, concat, atrim/afade, AAC 192k, `+faststart` | `backend/ffmpeg-practice/render.js` (tracked; spike media is gitignored) |
+| Spike verification | ffprobe checks duration ±0.1 s and 1080x1920 | `backend/ffmpeg-practice/verify.js` (tracked) |
 
 ## Stubbed or Mocked
 
@@ -68,12 +68,12 @@ This document records what genuinely exists. Update it whenever a task changes w
 
 ## Known Defects
 
-1. **Fresh clone cannot start the backend.** `backend/src/server.js:4` imports `../ffmpeg-practice/render.js`, but `backend/.gitignore:3` ignores `ffmpeg-practice/`. No commit has ever included it. (KNAR-001)
+1. ~~**Fresh clone cannot start the backend.**~~ Resolved by KNAR-001: spike scripts and notes are tracked and only spike media is ignored. A fresh clone starts; without the (untracked) demo media, `POST /api/demo-render` returns a clean 500.
 2. ~~**Frontend export wiring is uncommitted.**~~ Resolved: committed in `35d97be`.
 3. **Output is tagged full range.** `knarra-demo.mp4` probes as `yuvj420p`, `color_range=pc`, despite `-pix_fmt yuv420p`. The source `vid.mp4` is full-range `yuvj420p`. `verify.js` checks neither pixel format nor range. (M2/M3)
 4. **Spike drops the video clip's own audio** (`concat ... a=0`); no `aresample`/channel normalization; libx264 defaults (no `-crf`/`-preset`). (M2 decision)
 5. **Open CORS and all-interface bind.** `cors()` with no options; `app.listen(PORT)` without host. Any page can trigger a CPU-heavy render. Acceptable only for local development. (M6/M7)
-6. **Config gaps.** `backend/package.json` `main` points to non-existent `server.js`; `dotenv` installed but unused; only a `dev` script. Frontend tsconfig does not enable `strict`.
+6. **Config gaps.** `dotenv` installed but unused; only a `dev` script. Frontend tsconfig does not enable `strict`.
 
 ## Frontend Types vs. Planned Backend Domain
 

@@ -9,7 +9,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | ID | Status | Milestone | Task | Depends on |
 | --- | --- | --- | --- | --- |
 | KNAR-000 | done | M0 | Minimal Export spike | none |
-| KNAR-001 | ready | M0 | Make the spike reproducible from Git | KNAR-000 |
+| KNAR-001 | done | M0 | Make the spike reproducible from Git | KNAR-000 |
 | KNAR-002 | done | M0 | Planning documents | KNAR-000 |
 | KNAR-101 | ready | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
 | KNAR-102 | ready | M1 | Structural Composition schemas v1 | KNAR-101 |
@@ -53,11 +53,11 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 - Completion evidence:
   - Commits `e7d3fb0` and `01013eb`.
   - ffprobe of `knarra-demo.mp4`: H.264 High 1080x1920, 30/1 fps, SAR 1:1, AAC LC stereo, duration 8.000000.
-  - Gaps carried forward: `render.js`/`verify.js` are gitignored and were never committed (fresh clone fails on import); frontend export wiring was uncommitted (since committed in `35d97be`; the backend gap is fixed by KNAR-001); output is tagged `yuvj420p`/`color_range=pc` (M2/M3); the clip's own audio is dropped (M2 decision).
+  - Gaps carried forward: `render.js`/`verify.js` were gitignored and never committed, so a fresh clone failed on import (fixed by KNAR-001); frontend export wiring was uncommitted (committed in `35d97be`); output is tagged `yuvj420p`/`color_range=pc` (M2/M3); the clip's own audio is dropped (M2 decision).
 
 ### KNAR-001 — Make the spike reproducible from Git
 
-- Status: ready
+- Status: done
 - Milestone: M0
 - Depends on: KNAR-000
 - Owner/session: lead
@@ -74,7 +74,14 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 - Required tests: manual fresh-clone check; manual Export check.
 - Verification commands: `git clone <repo> /tmp/knarra-check && cd /tmp/knarra-check/backend && npm install && npm run dev`; `curl -X POST http://localhost:3001/api/demo-render -i`.
 - Learning checkpoint: explain why a passing local run did not prove the commit was reproducible.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, against base `af1ca7b`):
+  - `backend/.gitignore` now ignores only media in `ffmpeg-practice/` (`*.mp4 *.mov *.mp3 *.wav *.m4a *.png *.jpg *.jpeg`); the extra extensions beyond the three named are a defensive addition. `render.js`, `verify.js`, `command.md`, `commands.txt`, and `Knarra_Four_Hour_Minimal_Render_Spike.md` become tracked.
+  - `backend/package.json` `main` is `src/server.js`.
+  - No media tracked or trackable: `git ls-files` and `git ls-files -co --exclude-standard` filtered for `mp4|mp3|mov|wav|m4a` both return nothing.
+  - Fresh-clone simulation (files from `git ls-files -co --exclude-standard` copied to an empty directory, `npm ci`, port 3001 confirmed free first): `GET /` → 200; `POST /api/demo-render` → 500 `{"error":"The demo render failed"}`; the clone's log shows FFmpeg exited because the inputs were missing, with no import crash.
+  - With media present: `node backend/ffmpeg-practice/verify.js` passed (8 s, 1080x1920); ffprobe shows h264 1080x1920 30/1 + aac, duration 8.000000 (still `yuvj420p`, tracked for M2/M3).
+  - Frontend regression checks: `npx tsc -p tsconfig.app.json --noEmit`, `npx tsc -p tsconfig.node.json --noEmit`, `npx eslint .` all pass.
+  - Manual: Mustapha clicked Export in the browser and confirmed the MP4 downloaded.
 
 ### KNAR-002 — Planning documents
 

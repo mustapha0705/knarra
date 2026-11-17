@@ -1,3 +1,12 @@
 node_modules/
 .env
-ffmpeg-practice/
+
+# Spike media and generated outputs (scripts and notes in ffmpeg-practice/ are tracked)
+ffmpeg-practice/*.mp4
+ffmpeg-practice/*.mov
+ffmpeg-practice/*.mp3
+ffmpeg-practice/*.wav
+ffmpeg-practice/*.m4a
+ffmpeg-practice/*.png
+ffmpeg-practice/*.jpg
+ffmpeg-practice/*.jpeg

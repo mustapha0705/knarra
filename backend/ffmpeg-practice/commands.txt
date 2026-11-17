@@ -1,0 +1,334 @@
+
+========================================
+FFMPEG PRACTICAL GUIDE
+Commands and Explanations
+========================================
+
+REQUIREMENTS
+------------
+
+FFmpeg and FFprobe must already be installed.
+
+Verify installation:
+
+ffmpeg -version
+
+ffprobe -version
+
+
+PREPARE YOUR FILES
+------------------
+
+Place these three files in the same folder:
+
+photo.jpg
+clip.mp4
+music.mp3
+
+Open your terminal and navigate to that folder.
+
+Example:
+
+cd ~/Desktop/ffmpeg-practice
+
+
+1. CREATE A 3-SECOND VIDEO FROM A PHOTO
+---------------------------------------
+
+COMMAND:
+
+ffmpeg -loop 1 -i photo.jpg -t 3 -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,format=yuv420p" -c:v libx264 -an photo_video.mp4
+
+EXPLANATION:
+
+-loop 1
+Continuously repeats the input image.
+
+-i photo.jpg
+Specifies the input image.
+
+-t 3
+Sets the output duration to 3 seconds.
+
+-vf
+Applies video filters.
+
+scale=1080:1920
+Resizes the image to fit within 1080x1920.
+
+force_original_aspect_ratio=decrease
+Preserves the original aspect ratio and prevents stretching.
+
+pad=1080:1920
+Adds padding to produce the exact output dimensions.
+
+(ow-iw)/2
+Centers the image horizontally.
+
+(oh-ih)/2
+Centers the image vertically.
+
+fps=30
+Sets the frame rate to 30 frames per second.
+
+format=yuv420p
+Sets the pixel format.
+
+-c:v libx264
+Uses the H.264 video encoder.
+
+-an
+Disables audio.
+
+photo_video.mp4
+Specifies the output filename.
+
+
+2. CREATE A 5-SECOND TRIMMED VIDEO
+-----------------------------------
+
+COMMAND:
+
+ffmpeg -i clip.mp4 -t 5 -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,format=yuv420p" -c:v libx264 -c:a aac -pix_fmt yuv420p trimmed_video.mp4
+
+EXPLANATION:
+
+-i clip.mp4
+Specifies the input video.
+
+-t 5
+Limits the output duration to 5 seconds.
+
+-vf
+Applies video filters.
+
+scale=1080:1920
+Resizes the video while preserving its aspect ratio.
+
+force_original_aspect_ratio=decrease
+Prevents stretching.
+
+pad=1080:1920
+Adds padding to fill the portrait frame.
+
+(ow-iw)/2
+Centers the video horizontally.
+
+(oh-ih)/2
+Centers the video vertically.
+
+fps=30
+Sets the frame rate to 30 fps.
+
+format=yuv420p
+Sets the pixel format.
+
+-c:v libx264
+Encodes video using H.264.
+
+-c:a aac
+Encodes audio using AAC.
+
+-pix_fmt yuv420p
+Explicitly sets the output pixel format.
+
+trimmed_video.mp4
+Specifies the output filename.
+
+NOTE:
+The original video's audio is retained.
+
+
+3. REPLACE VIDEO AUDIO WITH MUSIC
+-----------------------------------
+
+COMMAND:
+
+ffmpeg -i clip.mp4 -i music.mp3 -map 0:v:0 -map 1:a:0 -vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,fps=30,format=yuv420p" -c:v libx264 -c:a aac -shortest -pix_fmt yuv420p music_video.mp4
+
+EXPLANATION:
+
+-i clip.mp4
+First input: original video.
+
+-i music.mp3
+Second input: replacement music.
+
+-map 0:v:0
+Selects the first video stream from the first input.
+
+-map 1:a:0
+Selects the first audio stream from the second input.
+
+-vf
+Applies video filters.
+
+scale=1080:1920
+Resizes the video while preserving its aspect ratio.
+
+force_original_aspect_ratio=decrease
+Prevents stretching.
+
+pad=1080:1920
+Adds padding to reach the required dimensions.
+
+(ow-iw)/2
+Centers horizontally.
+
+(oh-ih)/2
+Centers vertically.
+
+fps=30
+Sets frame rate to 30 fps.
+
+format=yuv420p
+Sets pixel format.
+
+-c:v libx264
+Encodes video using H.264.
+
+-c:a aac
+Encodes audio using AAC.
+
+-shortest
+Ends the output when the shortest stream ends.
+
+-pix_fmt yuv420p
+Explicitly sets pixel format.
+
+music_video.mp4
+Specifies the output filename.
+
+NOTE:
+This replaces the original video's audio.
+It does not mix the two audio tracks.
+
+
+4. UNDERSTANDING SCALE AND PAD
+-------------------------------
+
+The filter sequence is:
+
+scale -> pad -> fps -> format
+
+SCALE:
+Resizes the video without stretching it.
+
+PAD:
+Adds space around the video to reach exactly
+1080x1920.
+
+FPS:
+Sets the frame rate to 30 fps.
+
+FORMAT:
+Sets the pixel format to yuv420p.
+
+WHY USE BOTH SCALE AND PAD?
+
+Simply forcing a video into 1080x1920 can
+distort its original proportions.
+
+Using scale with
+force_original_aspect_ratio=decrease
+preserves the original proportions.
+
+Using pad fills the remaining space.
+
+The result is a correctly proportioned
+1080x1920 portrait video.
+
+
+5. VERIFY YOUR OUTPUTS WITH FFPROBE
+------------------------------------
+
+Check the first video:
+
+ffprobe -v error -show_streams -show_format photo_video.mp4
+
+Check the second video:
+
+ffprobe -v error -show_streams -show_format trimmed_video.mp4
+
+Check the third video:
+
+ffprobe -v error -show_streams -show_format music_video.mp4
+
+
+SHORT VERIFICATION COMMAND:
+
+ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height,pix_fmt,r_frame_rate -of default=noprint_wrappers=1 photo_video.mp4
+
+Repeat for the other two files.
+
+
+EXPECTED VIDEO SPECIFICATIONS
+------------------------------
+
+All three videos should have:
+
+Resolution: 1080x1920
+Frame rate: 30 fps
+Pixel format: yuv420p
+Video codec: H.264
+
+Expected durations:
+
+photo_video.mp4 = 3 seconds
+trimmed_video.mp4 = 5 seconds
+music_video.mp4 = Depends on the shorter input stream
+
+
+6. PLAY THE OUTPUT VIDEOS
+--------------------------
+
+WINDOWS:
+
+start photo_video.mp4
+start trimmed_video.mp4
+start music_video.mp4
+
+MACOS:
+
+open photo_video.mp4
+open trimmed_video.mp4
+open music_video.mp4
+
+LINUX:
+
+xdg-open photo_video.mp4
+xdg-open trimmed_video.mp4
+xdg-open music_video.mp4
+
+
+7. FINAL CHECKPOINT
+--------------------
+
+[ ] Verified FFmpeg installation.
+[ ] Verified FFprobe installation.
+[ ] Created the 3-second photo video.
+[ ] Created the 5-second trimmed video.
+[ ] Created the video with replacement music.
+[ ] Verified resolution is 1080x1920.
+[ ] Verified frame rate is 30 fps.
+[ ] Verified pixel format is yuv420p.
+[ ] Confirmed aspect ratio is preserved.
+[ ] Played all three output videos.
+[ ] Understand every command option.
+
+
+8. OFFICIAL DOCUMENTATION
+-------------------------
+
+FFmpeg Manual:
+https://ffmpeg.org/ffmpeg.html
+
+FFprobe Manual:
+https://ffmpeg.org/ffprobe.html
+
+FFmpeg Filter Reference:
+https://ffmpeg.org/ffmpeg-filters.html
+
+
+END OF GUIDE
+========================================

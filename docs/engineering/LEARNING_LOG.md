@@ -45,3 +45,28 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    _(Mustapha to write.)_
+
+---
+
+## KNAR-001 — Make the spike reproducible from Git (2026-11-17)
+
+1. **What problem does this layer solve?**
+   The spike worked on this machine, but the repository could not reproduce it: `backend/src/server.js` imports `../ffmpeg-practice/render.js`, and the whole `ffmpeg-practice/` folder was gitignored, so a fresh clone crashed on import.
+
+2. **What inputs and outputs cross its boundary?**
+   Git's ignore rules decide what reaches the repository. Ignoring a whole folder hid code and notes along with the media. The fix ignores media by extension, so scripts and notes are committed and media and generated MP4s are not.
+
+3. **What invariant does it protect?**
+   Commit code and notes; never commit media or generated outputs. A checkpoint must be reproducible from Git alone, apart from deliberately untracked media.
+
+4. **What failure case did the test expose?**
+   A passing local run proved nothing about the commit, because the local folder contained ignored files. Only a clone-like copy of exactly what Git would contain showed the import crash, and then showed it had become a clean 500 when media is missing. A second lesson came from the check itself: when another server already holds port 3001, a request to `localhost:3001` silently reaches that server instead, so the check must confirm the port is free and read the new server's own log.
+
+5. **How would I diagnose it without Claude?**
+   - `git check-ignore -v <file>` shows which rule ignores a file.
+   - `git ls-files` lists what is committed; `git ls-files -co --exclude-standard` lists what would be committed.
+   - Clone the repository into an empty folder (or copy only those files), install, and run it before calling a checkpoint done.
+   - `netstat -ano | findstr :3001` shows whether a port is already in use.
+
+6. **What did I personally inspect, change, or test?**
+   I ran the manual Export test in the browser and confirmed the MP4 downloaded.
