@@ -19,7 +19,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-105 | done | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
 | KNAR-106 | done | M1 | Schema version and migration boundary | KNAR-102 |
 | KNAR-201 | done | M2 | Deterministic render compiler | M1 |
-| KNAR-301 | planned | M3 | FFmpeg executor and media probe | KNAR-201 |
+| KNAR-301 | done | M3 | FFmpeg executor and media probe | KNAR-201 |
 | KNAR-302 | planned | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
 | KNAR-401 | planned | M4 | Project persistence and versions | M1 |
 | KNAR-402 | planned | M4 | Project save and reopen integration (frontend checkpoint) | KNAR-401, KNAR-302 |
@@ -357,13 +357,53 @@ Branch `feat/render-compiler`, stacked on `feat/composition-kernel`. Code lives 
 
 ---
 
+## M3: FFmpeg Executor and Media Probe
+
+Continues on branch `feat/render-compiler`. Code lives in `backend/src/media/`.
+
+### KNAR-301 — FFmpeg executor and media probe
+
+- Status: done
+- Milestone: M3
+- Depends on: KNAR-201
+- Owner/session: lead
+- Intended files: `backend/src/media/{process.ts,probe.ts,progress.ts,executor.ts,index.ts}`, their unit tests, `backend/src/media/render.integration.test.ts`, `backend/src/domain/composition/boundary.test.ts`, `backend/vitest.config.ts`, `backend/vitest.integration.config.ts`, `backend/tsconfig.json`, `backend/package.json`, `backend/package-lock.json`, `backend/src/render/compiler/*` (fixes found by real renders), `CLAUDE.md` (Commands)
+- Goal: run a compiled `RenderPlan` with FFmpeg safely, report progress, support cancellation, clean up partial output, and read media properties with ffprobe.
+- Non-goals: HTTP routes, job queue, persistence, uploads, thumbnails or proxies; connecting the frontend (KNAR-302).
+- Approved dependencies: `@types/node` (development only; added under the overnight discretion grant of 2026-11-17).
+- Acceptance criteria:
+  - FFmpeg and ffprobe are started with `spawn` and an argument array, never through a shell.
+  - ffprobe JSON is parsed and validated into a typed result that includes pixel format, color range, and audio-stream presence.
+  - `-progress pipe:1` output is parsed into progress reports.
+  - An `AbortSignal` stops the process; a failed or cancelled render leaves no output file.
+  - Failures carry the exit code and a bounded tail of stderr.
+  - An integration test generates fixtures from FFmpeg test sources, compiles a known Composition, renders it, probes it, and verifies duration, dimensions, streams, codecs, frame rate, pixel format, and range.
+- Required tests: unit tests for the process runner, progress parser, and probe parser; integration tests for render, progress, failure, and cancellation.
+- Verification commands: `cd backend && npm run typecheck && npm test && npm run test:integration`
+- Learning checkpoint: explain why the process must have fully closed before the partial file is deleted, and why golden tests alone could not have found the defects the integration tests found.
+- Completion evidence (2026-11-17, branch `feat/render-compiler`, against base `274a7fe`):
+  - `npm run typecheck`: exit 0. `npm test`: 11 files, 333 tests passed. `npm run test:integration`: 14 tests passed in about 4 seconds.
+  - Process runner: `spawn` with an argument array and `shell: false`. A unit test passes `a b`, `$HOME`, backticks, `x;y`, `&&`, `|`, quotes, `*`, `%PATH%`, and `>out.txt` as arguments and reads them back unchanged. Exit failures carry the exit code and a bounded stderr tail; a missing program, an abort, a timeout, and oversized stdout each reject with their own failure kind.
+  - Probe: `parseProbeOutput` returns format, duration in integer milliseconds, video codec/size/pixel format/color range/color space/frame rate, and audio codec/sample rate/channels. Embedded cover art in an audio file is not reported as video. Invalid JSON and unexpected structures raise `ProbeError`; unsafe paths are refused before ffprobe starts.
+  - Progress: FFmpeg progress blocks become `{ outTimeMs, ratio, frame, done }`; the ratio never decreases, stays below 1 while running, and is exactly 1 on the end block; `N/A`, negative, and malformed lines are ignored.
+  - Integration (fixtures generated from `testsrc`, `testsrc2`, and `sine` into a temporary directory whose name contains spaces): a Composition of a 1 s image and a 2 s video range at 2x over music compiles, renders, and probes as MP4, duration 2000 ms within 50 ms, H.264 270x480 at 30/1 fps, `yuv420p`, `color_range=tv`, `color_space=bt709`, AAC 48 kHz stereo with an audio stream as long as the video. The source video probes as `yuvj420p`/`pc`, so the range conversion is exercised.
+  - Audio placement is measured, not assumed: the window containing the video clip's audio is louder than the music-only window; a composition with nothing audible renders silence below -80 dB.
+  - Failure: a missing input file rejects with the exit code and stderr, and no output file exists afterwards.
+  - Cancellation: a long 1080x1920 render is aborted on its first progress report; the output file existed while FFmpeg ran, the call rejects as a cancellation, and the file is gone afterwards. An already-aborted signal starts no process.
+  - Defect found by the integration tests and fixed in the compiler: the output carried no color-range tag at all for some sources, because the encoder writes the flag only when color information is present. The plan now converts to BT.709 (`out_color_matrix=bt709`) and tags range, matrix, primaries, and transfer explicitly. The golden plan fixture was regenerated for this change.
+  - Added `boundary.test.ts`, which fails if the kernel or the compiler imports anything outside their allowed modules or uses Node I/O globals.
+  - Dependency added under the overnight discretion grant: `@types/node` (development only). `tsconfig.json` now loads Node types; `npm test` excludes integration tests, which run with `npm run test:integration`.
+  - Frontend checks omitted: nothing the frontend builds from or consumes changed. `server.js` and the demo render endpoint are untouched.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
+
+---
+
 ## M3–M9: Headline Tasks
 
 Expand each into full task entries (and split as needed) at the start of its milestone.
 
 Frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602) connect the existing React frontend to the backend contract its milestone has just stabilized. Each is tested in the browser before the next milestone starts. They do not redesign the approved UI (ADR 0008).
 
-- **KNAR-301 (M3):** ffprobe adapter, `spawn` executor, progress parser, `AbortSignal` cancellation, partial-output cleanup, real tiny-render integration test with pixel-format and range assertions.
 - **KNAR-302 (M3, frontend checkpoint) — Project-driven synchronous Export integration.** Depends on KNAR-201 and KNAR-301. Replaces the hard-coded render spike with the first project-driven render:
   - A `toComposition` adapter maps the existing editor state to a valid Composition.
   - The existing Export control sends that Composition to the backend, which validates it structurally and semantically, compiles it, renders it synchronously, and returns the MP4 for download.

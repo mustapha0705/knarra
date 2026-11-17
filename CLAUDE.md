@@ -19,7 +19,8 @@ Knarra is an AI-assisted, non-destructive video editor. The Canvas organizes sou
 - Run FFmpeg with `spawn()` and an argument array; never interpolate a shell command.
 - Keep original media immutable and separate from proxies, thumbnails, and exports.
 - Bind render jobs to immutable project versions.
-- The Composition kernel (`backend/src/domain/composition`) must not import Express, `fs`, `child_process`, or database code.
+- The Composition kernel (`backend/src/domain/composition`) must not import Express, `fs`, `child_process`, or database code. The render compiler (`backend/src/render/compiler`) imports only the kernel. `boundary.test.ts` enforces both.
+- Only `backend/src/media` starts FFmpeg or ffprobe.
 - All Composition times are integer milliseconds (ADR 0005).
 - Python media intelligence (`media-intelligence/`, from M9) is analysis-only: invoked as a CLI process with request/result JSON files, output validated by Node before persistence, never owns project state (ADR 0007).
 
@@ -60,8 +61,10 @@ Backend (`backend/`):
 - Dev server: `npm run dev` (port 3001; requires `ffmpeg` and `ffprobe` on PATH)
 - Type-check: `npm run typecheck` (`tsc --noEmit`; TypeScript files are strict, existing JavaScript is allowed but not checked)
 - Unit tests: `npm test` (Vitest, `src/**/*.test.ts`); one area: `npm test -- <name>`, for example `npm test -- schema`
-- M1 verification: `npm run typecheck && npm test`
+- Integration tests: `npm run test:integration` (`src/**/*.integration.test.ts`; runs real `ffmpeg` and `ffprobe`, which must be on PATH; writes only to a temporary directory)
+- Everything: `npm run test:all`
+- Backend verification: `npm run typecheck && npm run test:all`
 
-Backend commands verified on 2026-11-17 (KNAR-101: TypeScript 7.0.2, Vitest 5.1.0, Zod 4.6.7, tsx 4.23.15).
+Backend commands verified on 2026-11-17 (KNAR-101: TypeScript 7.0.2, Vitest 5.1.0, Zod 4.6.7, tsx 4.23.15; KNAR-301: `@types/node` 24, integration tests).
 
-Not yet available: frontend tests, integration tests, backend lint, migrations, render fixtures. Later tasks add them and must update this section.
+Not yet available: frontend tests, backend lint, migrations, API integration tests. Later tasks add them and must update this section.

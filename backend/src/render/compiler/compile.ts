@@ -20,7 +20,8 @@ import type { RenderAsset, RenderInput, RenderPlan } from "./types.js";
  * - One input per visual clip, in track order, then one per audible background
  *   clip. Video and audio inputs are cut with `-ss`/`-t` before decoding.
  * - Each visual clip is normalized to the preset's size, frame rate, pixel
- *   format, and limited ("tv") color range, then the clips are concatenated.
+ *   format, limited ("tv") color range, and BT.709 color, then the clips are
+ *   concatenated.
  * - A video clip's own audio is mixed with the background track, scaled by the
  *   clip's volume (ADR 0009). The output always has one audio stream.
  */
@@ -67,7 +68,7 @@ export function compileRenderPlan(
   const audioLabels: string[] = [];
 
   const normalize =
-    `scale=${width}:${height}:force_original_aspect_ratio=decrease:in_range=auto:out_range=tv,` +
+    `scale=${width}:${height}:force_original_aspect_ratio=decrease:in_range=auto:out_range=tv:out_color_matrix=${COLOR_STANDARD},` +
     `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps}`;
 
   let timelineMs = 0;
@@ -177,6 +178,12 @@ export function compileRenderPlan(
     "-crf", String(preset.crf),
     "-pix_fmt", preset.pixelFormat,
     "-color_range", preset.colorRange,
+    // The encoder writes no range flag at all unless color information is
+    // present, so the standard is stated in full. Pixels are converted to it by
+    // `scale` above.
+    "-colorspace", COLOR_STANDARD,
+    "-color_primaries", COLOR_STANDARD,
+    "-color_trc", COLOR_STANDARD,
     "-r", String(fps),
     "-c:a", preset.audioCodec,
     "-b:a", `${preset.audioBitrateKbps}k`,
@@ -231,6 +238,9 @@ export function isSafeInputPath(path: unknown): path is string {
   if (typeof path !== "string" || path.length === 0 || path.includes("\0")) return false;
   return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path);
 }
+
+/** Standard-dynamic-range HD color: the only color standard Composition v1 renders. */
+const COLOR_STANDARD = "bt709";
 
 /**
  * Rewrites audio timestamps from the running sample count. Every audio source

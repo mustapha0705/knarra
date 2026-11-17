@@ -112,8 +112,18 @@ Entry points:
 - `RenderAsset` is an `AssetRef` plus a server-resolved absolute `path`. Paths that are empty, relative, or could be read by FFmpeg as an option or protocol are rejected.
 - `RenderPlan { inputs, filterGraph, outputArgs, expectedDurationMs, diagnostics }`. `buildFfmpegArgs(plan, outputPath)` produces the argument array for `spawn`.
 - One input per visual clip in track order, then one per audible background clip. Paths appear only as argument-array elements; the filtergraph refers to inputs by index.
-- Each visual clip is scaled and padded to the preset size, converted to limited range (`out_range=tv`) and `yuv420p`, set to the preset frame rate, and cut to its exact duration; the clips are then concatenated.
+- Each visual clip is scaled and padded to the preset size, converted to limited range (`out_range=tv`), BT.709 color, and `yuv420p`, set to the preset frame rate, and cut to its exact duration; the clips are then concatenated. The output is tagged `tv` and `bt709` explicitly.
 - Audio: a video clip's own audio is mixed with the background track, scaled by the clip's volume (ADR 0009). Every audio source is resampled to the preset format and placed on the timeline. The output always has exactly one audio stream of the video's length; silence is generated when nothing is audible.
+
+### Media Execution (M3)
+
+`backend/src/media` is the only module that starts FFmpeg or ffprobe.
+
+- `runProcess(command, args, options)`: `spawn` with an argument array and `shell: false`; supports `AbortSignal`, a timeout, line-by-line stdout, and a bounded stderr tail. It settles only after the process has closed.
+- `executeRenderPlan(plan, outputPath, { signal, onProgress })`: runs a plan with `-progress pipe:1`. If the render fails or is cancelled it deletes the partial output, so a file at `outputPath` always means a completed render.
+- `createProgressParser`: turns FFmpeg's progress blocks into `{ outTimeMs, ratio, frame, done }`; `ratio` never decreases and reaches 1 only at the end.
+- `probeMedia(path)`: runs ffprobe and returns a validated `MediaProbe` (format, duration, video codec/size/pixel format/color range/color space/frame rate, audio codec/sample rate/channels). Cover art embedded in audio files is not treated as video.
+- `ProcessError.stderr` can contain file paths. It is for server logs and must not be returned to a client.
 
 ### Frontend Mapping (staged: KNAR-302 to M7)
 

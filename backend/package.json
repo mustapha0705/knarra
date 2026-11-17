@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "npm run test && npm run test:integration"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -17,6 +19,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "dotenv": "^17.4.2",
     "nodemon": "^3.1.14",
     "tsx": "^4.23.15",

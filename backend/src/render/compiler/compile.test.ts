@@ -73,7 +73,7 @@ const chainEndingIn = (plan: RenderPlan, label: string) => {
 };
 
 const NORMALIZE =
-  "scale=1080:1920:force_original_aspect_ratio=decrease:in_range=auto:out_range=tv," +
+  "scale=1080:1920:force_original_aspect_ratio=decrease:in_range=auto:out_range=tv:out_color_matrix=bt709," +
   "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=30";
 const AUDIO_FORMAT = "aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo";
 
@@ -91,7 +91,8 @@ describe("compileRenderPlan: the spike as a Composition (golden)", () => {
       "-filter_complex", spikePlanJson.filterGraph,
       "-map", "[vout]", "-map", "[aout]",
       "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-      "-pix_fmt", "yuv420p", "-color_range", "tv", "-r", "30",
+      "-pix_fmt", "yuv420p", "-color_range", "tv",
+      "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-r", "30",
       "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
       "-t", "8.000", "-movflags", "+faststart",
       "/srv/knarra/storage/exports/job-1/output.mp4",
@@ -395,7 +396,7 @@ describe("compileRenderPlan: limited-range color normalization", () => {
 
     for (const label of ["v0", "v1"]) {
       const chain = chainEndingIn(plan, label);
-      expect(chain).toContain("in_range=auto:out_range=tv");
+      expect(chain).toContain("in_range=auto:out_range=tv:out_color_matrix=bt709");
       expect(chain).toMatch(/format=yuv420p\[v\d\]$/);
     }
   });
@@ -405,6 +406,9 @@ describe("compileRenderPlan: limited-range color normalization", () => {
 
     expect(outputArgs[outputArgs.indexOf("-pix_fmt") + 1]).toBe("yuv420p");
     expect(outputArgs[outputArgs.indexOf("-color_range") + 1]).toBe("tv");
+    for (const flag of ["-colorspace", "-color_primaries", "-color_trc"]) {
+      expect(outputArgs[outputArgs.indexOf(flag) + 1]).toBe("bt709");
+    }
     expect(outputArgs.join(" ")).not.toContain("yuvj420p");
   });
 

@@ -267,3 +267,29 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
+
+---
+
+## KNAR-301 — FFmpeg executor and media probe (2026-11-17)
+
+1. **What problem does this layer solve?**
+   The compiler produces a plan; something has to carry it out in the real world, where processes fail, hang, get cancelled, and leave half-written files. This layer runs FFmpeg and ffprobe and makes those outcomes safe and predictable.
+
+2. **What inputs and outputs cross its boundary?**
+   Input: a `RenderPlan`, an output path, an optional `AbortSignal`, and an optional progress callback. Output: a finished file, or a `ProcessError` saying whether it failed to start, exited with an error, was cancelled, or timed out. For probing: a path in, a validated description of the media out.
+
+3. **What invariant does it protect?**
+   Invariant 7: FFmpeg is launched with `spawn()` and an argument array, never a shell command. It also supplies the rule that a file at the output path always means a completed render, which render jobs (M6) depend on.
+
+4. **What failure case did the test expose?**
+   Order matters in cleanup. On Windows a file cannot be deleted while another process has it open, so the partial output can only be removed after FFmpeg has fully closed; the runner therefore settles on the process's `close` event, not at the moment it asks the process to stop. The integration tests also found a defect that no golden test could: the rendered file had no color-range tag at all for some sources. The golden test compared the plan with what I intended, and my intention was incomplete. Only rendering and probing a real file showed it.
+
+5. **How would I diagnose it without Claude?**
+   - Read `error.failure`, `error.exitCode`, and `error.stderr` on a `ProcessError`.
+   - Run the same arguments by hand with `-loglevel info` to see FFmpeg's own explanation.
+   - `ffprobe -v error -show_streams -of json file.mp4` and compare with what the probe returned.
+   - After a cancelled render, list the output directory: nothing should be left.
+   - `npm run test:integration` re-runs the real renders in a few seconds.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
