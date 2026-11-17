@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-17 at commit `af1ca7b` plus the KNAR-001 changes.
+Last verified: 2026-11-17 at commit `93a1f3d` plus the KNAR-003 documentation changes (no product code changed).
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -43,7 +43,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 - **`executeEditPlan`:** `console.info` returning `{status:'not-connected'}` (`planner.ts:334-337`).
 - **Save indicator:** 550 ms timer; nothing is persisted (`ProjectEditor.tsx:161-169`).
 - **Workspace:** seeded fake projects and statuses (`frontend/src/features/workspace/data.ts`); workspace settings never reach the editor.
-- **Export:** downloads the fixed demo MP4; the project is not sent (`ProjectEditor.tsx:184-214`; dev-only `/api` proxy in `frontend/vite.config.ts`).
+- **Export:** downloads the fixed demo MP4; the project is not sent (`ProjectEditor.tsx:184-214`; dev-only `/api` proxy in `frontend/vite.config.ts`). This spike is not the Export architecture: KNAR-302 replaces it with a project-driven synchronous render, and KNAR-602 replaces that with render jobs.
 - **Other:** "Analyze style", Markdown/Link/Sandbox sources, feedback, sign-out are toasts; waveforms are fake; `CanvasNode.scale/rotation/groupId`, `TimelineClip.effects`, `EditorProject.instructions` are unused.
 
 ## Absent
@@ -72,7 +72,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 2. ~~**Frontend export wiring is uncommitted.**~~ Resolved: committed in `35d97be`.
 3. **Output is tagged full range.** `knarra-demo.mp4` probes as `yuvj420p`, `color_range=pc`, despite `-pix_fmt yuv420p`. The source `vid.mp4` is full-range `yuvj420p`. `verify.js` checks neither pixel format nor range. (M2/M3)
 4. **Spike drops the video clip's own audio** (`concat ... a=0`); no `aresample`/channel normalization; libx264 defaults (no `-crf`/`-preset`). (M2 decision)
-5. **Open CORS and all-interface bind.** `cors()` with no options; `app.listen(PORT)` without host. Any page can trigger a CPU-heavy render. Acceptable only for local development. (M6/M7)
+5. **Open CORS and all-interface bind.** `cors()` with no options; `app.listen(PORT)` without host. Any page can trigger a CPU-heavy render. Acceptable only for local development. (M6, KNAR-601)
 6. **Config gaps.** `dotenv` installed but unused; only a `dev` script. Frontend tsconfig does not enable `strict`.
 
 ## Frontend Types vs. Planned Backend Domain
@@ -85,4 +85,4 @@ This document records what genuinely exists. Update it whenever a task changes w
 - `EditorProject` has no aspect ratio, resolution, fps, or schema version. Canvas nodes and timeline clips share one document and one undo stack. Applied-command records are not undone.
 - All frontend times are integer milliseconds, matching ADR 0005.
 
-Resolution: the backend kernel is authoritative. In M7 the frontend gets a `toComposition(editorProject)` adapter and its types are renamed `Editor*`. Frontend internals are not changed before then.
+Resolution: the backend kernel is authoritative. The existing frontend is connected in stages (ADR 0008): KNAR-302 adds a `toComposition(editorProject)` adapter for Export, KNAR-402 adds save and reopen, KNAR-502 adds uploaded assets and proxies, and KNAR-602 adds render jobs. M7 then renames the frontend types `Editor*`, routes every editor mutation through `EditOperation`s, and removes the prototype domain logic. M1 and M2 do not change the frontend.

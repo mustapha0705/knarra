@@ -1,6 +1,6 @@
 # Learning Log
 
-One entry per completed task, written or approved by Mustapha. Agents may draft answers 1–5; answer 6 is always Mustapha's own.
+One entry per completed task. The agent writes the whole entry after Mustapha confirms the task passes (see `AGENT_WORKFLOW.md`). Answer 6 records only what Mustapha actually reported inspecting, changing, or testing; the agent never invents it.
 
 ## Template
 
@@ -44,7 +44,7 @@ At the end of each milestone, explain the data flow on paper or in your own word
    - `git ls-files` and `git check-ignore -v <file>` to confirm a file is actually committed.
 
 6. **What did I personally inspect, change, or test?**
-   _(Mustapha to write.)_
+   I built this spike by hand (`TASKS.md` records KNAR-000 as a manual spike, commits `e7d3fb0` and `01013eb`): the FFmpeg practice commands, `render.js`, `verify.js`, and the Export wiring.
 
 ---
 
@@ -70,3 +70,27 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    I ran the manual Export test in the browser and confirmed the MP4 downloaded.
+
+---
+
+## KNAR-003 — Add staged frontend integration checkpoints (2026-11-17)
+
+1. **What problem does this layer solve?**
+   The plan connected the existing frontend to the backend only once, in M7, after five backend milestones. Every mismatch between the editor and the backend contracts would have surfaced together and late, and the hard-coded Export spike would have stayed in place until then. The roadmap now ends each backend milestone with a frontend integration checkpoint.
+
+2. **What inputs and outputs cross its boundary?**
+   This is a planning change, so the boundary is between milestones. Each backend milestone outputs a stable contract; its checkpoint takes that contract and the existing UI as inputs and outputs one browser-testable slice: KNAR-302 a real Export, KNAR-402 save and reopen, KNAR-502 uploaded assets and proxies, KNAR-602 render jobs. M7 takes those four integrations and outputs one consolidated frontend architecture.
+
+3. **What invariant does it protect?**
+   Invariant 12: the current frontend is evolved incrementally, not regenerated. It also keeps invariants 2–5 honest earlier, because the editor must produce a Composition that passes real validation from KNAR-302 onward.
+
+4. **What failure case did the test expose?**
+   Planning KNAR-302 exposed a gap: imported media exists only as `blob:` URLs in the browser until M5, so the backend would have had nothing to render. The roadmap now states a temporary request-scoped upload, deleted after the render and removed by KNAR-502. The stale-statement search also showed that accepted ADRs still said "M7 adapter"; a new ADR supersedes that wording instead of rewriting history.
+
+5. **How would I diagnose it without Claude?**
+   - Read the "Depends on" column in `TASKS.md` and check that every checkpoint depends on its backend task and on the previous checkpoint.
+   - Search the docs for `M7` and `vertical slice` and check each hit against ADR 0008.
+   - `git diff --name-only` to confirm a documentation task touched only Markdown files.
+
+6. **What did I personally inspect, change, or test?**
+   I approved the plan, chose the temporary upload for KNAR-302 and a new ADR instead of editing accepted ones, and removed the final diff-summary step from the completion sequence.
