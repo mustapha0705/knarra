@@ -20,6 +20,10 @@ export const ISSUE_CODES = [
   "AUDIO_CLIPS_OVERLAP",
   "VISUAL_TRACK_EMPTY",
   "FADE_TOO_LONG",
+  // Failures while applying an operation (applyOperations).
+  "CLIP_NOT_FOUND",
+  "INDEX_OUT_OF_RANGE",
+  "CLIP_KIND_NOT_SUPPORTED",
 ] as const;
 
 export type IssueCode = (typeof ISSUE_CODES)[number];
@@ -31,7 +35,8 @@ export interface Issue {
   /**
    * Location inside the Composition, for example
    * `["tracks", 0, "clips", 1, "sourceEndMs"]`. Issues about the asset catalog
-   * itself start with `"assets"`.
+   * itself start with `"assets"`; issues about a submitted operation start with
+   * `"operations"` and its index in the batch.
    */
   path: IssuePath;
   message: string;

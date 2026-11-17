@@ -16,7 +16,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-102 | done | M1 | Structural Composition schemas v1 | KNAR-101 |
 | KNAR-103 | done | M1 | Semantic Composition validation | KNAR-102 |
 | KNAR-104 | done | M1 | EditOperation v1 schema | KNAR-102 |
-| KNAR-105 | ready | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
+| KNAR-105 | done | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
 | KNAR-106 | ready | M1 | Schema version and migration boundary | KNAR-102 |
 | KNAR-201 | planned | M2 | Deterministic render compiler | M1 |
 | KNAR-301 | planned | M3 | FFmpeg executor and media probe | KNAR-201 |
@@ -260,7 +260,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-105 — Pure atomic operation reducer
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-103, KNAR-104
 - Owner/session: lead
@@ -275,7 +275,18 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: each op's effect; frozen-input test; failure midway leaves nothing applied; repeated `setClipSpeed`.
 - Verification commands: `cd backend && npm test -- reducer`
 - Learning checkpoint: explain why the frontend's current `setSpeed` compounds and how this reducer prevents it.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `3f494bf`):
+  - `npm run typecheck`: exit 0. `npm test -- reducer`: 48 tests passed. `npm test`: 5 files, 205 tests passed.
+  - `applyOperations(composition, operations, assets)` returns `Result<Composition, Issue[]>`. `operations` is typed `unknown` and parsed with `editOperationsSchema` inside the function, so callers cannot skip structural validation.
+  - Never mutates input: every test runs against a deep-frozen composition and asset list (a mutation would throw), one test also freezes the operations, and the result shares no clip objects with the input.
+  - All or nothing: a batch that fails at its second operation returns only `CLIP_NOT_FOUND` at `operations.1.clipId` and no composition; a batch whose final state is invalid returns only the validation issues.
+  - Re-validated: the final draft is passed to `validateComposition`; a test asserts every successful result validates cleanly, and nine cases show semantic issues from the result (duplicate ID, unknown asset, kind mismatch, range, speed, volume, image duration, fade, empty visual track) rejecting the batch.
+  - `setClipSpeed` sets the speed and recomputes `durationMs` from the source range: repeated in one batch, applied to its own output, and set back to 1 all give the expected clip; trim-then-speed equals speed-then-trim.
+  - Each operation's effect has a test, including the three insert positions and removal from either track.
+  - New issue codes: `CLIP_NOT_FOUND`, `INDEX_OUT_OF_RANGE`, `CLIP_KIND_NOT_SUPPORTED`, and `INVALID_STRUCTURE` for malformed operations, all with paths starting at `operations`.
+  - Decisions made here: application stops at the first operation that cannot be applied; only the final state is validated, so a batch may pass through an invalid intermediate state.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
 
 ### KNAR-106 — Schema version and migration boundary
 

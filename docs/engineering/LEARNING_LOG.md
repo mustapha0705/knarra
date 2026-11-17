@@ -194,3 +194,27 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
+
+---
+
+## KNAR-105 — Pure atomic operation reducer (2026-11-17)
+
+1. **What problem does this layer solve?**
+   It is the single place where a Composition changes. Given a Composition and a batch of operations it returns either a new valid Composition or the reasons it refused. There is no third outcome such as "half applied".
+
+2. **What inputs and outputs cross its boundary?**
+   Input: the current `Composition`, untrusted operations (`unknown`), and the asset list. Output: `{ ok: true, value }` with a new Composition, or `{ ok: false, error }` with issues. Issues about an operation have paths like `operations.1.clipId`; issues about the result have Composition paths like `tracks.0.clips.1.speed`.
+
+3. **What invariant does it protect?**
+   Invariant 3 (manual and AI edits change the same typed Composition through the same code) and invariant 5 (structural and semantic validation both run before state changes). Because the function is pure and atomic, a caller can keep the old Composition, try an edit, and simply discard a failed attempt.
+
+4. **What failure case did the test expose?**
+   The frontend's current `setSpeed` compounds: it divides the clip's current duration by the new speed, so setting 2x twice gives a quarter-length clip, and the duration no longer matches the source range. This reducer stores the speed and always recomputes the duration from the source range, `round((end - start) / speed)`. Setting 2x any number of times gives the same clip, and setting 1x restores the original.
+
+5. **How would I diagnose it without Claude?**
+   - Call `applyOperations` in a test with a frozen input (`Object.freeze` recursively); any mutation throws with a stack trace.
+   - Read the first path segment of each issue: `operations` means the request was wrong, `tracks` means the result would be invalid.
+   - `npm test -- reducer` runs only these tests.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
