@@ -1,6 +1,6 @@
 # Tasks
 
-Work one task at a time. A task is done only when its completion evidence matches its acceptance criteria and the learning-log entry exists. M2–M9 tasks are headlines; expand them into full entries at the start of their milestone.
+Work one task at a time. A task is done only when its completion evidence matches its acceptance criteria and the learning-log entry exists. M2–M9 tasks, including the frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602), are headlines; expand them into full entries at the start of their milestone. Every task follows the completion sequence in `AGENT_WORKFLOW.md`.
 
 Statuses: `ready | in-progress | blocked | review | done | planned`.
 
@@ -11,19 +11,24 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-000 | done | M0 | Minimal Export spike | none |
 | KNAR-001 | done | M0 | Make the spike reproducible from Git | KNAR-000 |
 | KNAR-002 | done | M0 | Planning documents | KNAR-000 |
-| KNAR-101 | ready | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
-| KNAR-102 | ready | M1 | Structural Composition schemas v1 | KNAR-101 |
+| KNAR-003 | done | M0 | Add staged frontend integration checkpoints | KNAR-002 |
+| KNAR-101 | done | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
+| KNAR-102 | done | M1 | Structural Composition schemas v1 | KNAR-101 |
 | KNAR-103 | ready | M1 | Semantic Composition validation | KNAR-102 |
 | KNAR-104 | ready | M1 | EditOperation v1 schema | KNAR-102 |
 | KNAR-105 | ready | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
 | KNAR-106 | ready | M1 | Schema version and migration boundary | KNAR-102 |
 | KNAR-201 | planned | M2 | Deterministic render compiler | M1 |
 | KNAR-301 | planned | M3 | FFmpeg executor and media probe | KNAR-201 |
+| KNAR-302 | planned | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
 | KNAR-401 | planned | M4 | Project persistence and versions | M1 |
+| KNAR-402 | planned | M4 | Project save and reopen integration (frontend checkpoint) | KNAR-401, KNAR-302 |
 | KNAR-501 | planned | M5 | Asset ingestion and proxies | KNAR-301, KNAR-401 |
+| KNAR-502 | planned | M5 | Asset ingestion and proxy integration (frontend checkpoint) | KNAR-501, KNAR-402 |
 | KNAR-601 | planned | M6 | Asynchronous render jobs | KNAR-301, KNAR-401 |
-| KNAR-701 | planned | M7 | Frontend vertical slice | M4–M6 |
-| KNAR-801 | planned | M8 | LLM planner | M7 |
+| KNAR-602 | planned | M6 | Asynchronous Export experience (frontend checkpoint) | KNAR-601, KNAR-502 |
+| KNAR-701 | planned | M7 | Frontend architecture consolidation | KNAR-302, KNAR-402, KNAR-502, KNAR-602 |
+| KNAR-801 | planned | M8 | LLM planner | KNAR-701 |
 | KNAR-901 | planned | M9 | Python package skeleton, contract envelope, CLI | KNAR-701 |
 | KNAR-902 | planned | M9 | Node analysis contracts and process runner | KNAR-901 |
 | KNAR-903 | planned | M9 | Persist validated analysis results | KNAR-902, KNAR-401 |
@@ -103,6 +108,43 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
   - Before commit: `npx tsc -p tsconfig.app.json --noEmit`, `npx tsc -p tsconfig.node.json --noEmit`, and `npx eslint .` in `frontend/` all passed.
   - Deviation: the same commit also included the playbook (`Knarra_Claude_Code_Serious_Development_Playbook.md`) and the KNAR-000 frontend export wiring (`ProjectEditor.tsx`, `EditorToolbar.tsx`, `Editor.module.css`, `vite.config.ts`). Those are KNAR-000 work, not new product changes, and KNAR-001's scope was reduced accordingly.
 
+### KNAR-003 — Add staged frontend integration checkpoints
+
+- Status: done
+- Milestone: M0
+- Depends on: KNAR-002
+- Owner/session: lead
+- Intended files: `docs/engineering/{TASKS.md,MASTER_PLAN.md,AGENT_WORKFLOW.md,ARCHITECTURE.md,CURRENT_STATE.md,LEARNING_LOG.md}`, `docs/decisions/0008-staged-frontend-integration.md`, `CLAUDE.md` (Working Rules), `Knarra_Claude_Code_Serious_Development_Playbook.md` (precedence note only)
+- Goal: the engineering roadmap and agent workflow describe staged frontend/backend integration. The existing frontend connects to each backend contract at the end of the relevant milestone (KNAR-302, KNAR-402, KNAR-502, KNAR-602), M7 becomes frontend architecture consolidation, and the task-completion workflow is recorded as permanent policy.
+- Non-goals:
+  - No product source changes.
+  - No API implementation.
+  - No frontend implementation.
+  - No dependency changes.
+  - No restructuring of M1.
+  - No expansion of every future milestone into detailed implementation tasks.
+- Acceptance criteria:
+  - The index, headline list, and `MASTER_PLAN.md` contain KNAR-302, KNAR-402, KNAR-502, and KNAR-602 with purpose, exclusions, and unambiguous dependencies.
+  - KNAR-701 is described as frontend architecture consolidation, not as the first frontend vertical slice.
+  - The nine-step integration sequence is documented in `MASTER_PLAN.md`.
+  - `AGENT_WORKFLOW.md` records agent and Mustapha responsibilities, the task completion sequence, and the automated frontend-check policy, using only commands that exist.
+  - No planning document still says that frontend integration begins in M7, that the frontend must be created, that the Export spike is the final Export architecture, that Mustapha must hand-edit task evidence or learning logs, or that the agent may commit. Remaining historical wording in accepted ADRs and the playbook body is superseded explicitly (ADR 0008, playbook precedence note).
+  - M1 task entries (KNAR-101 to KNAR-106) are unchanged.
+  - Only Markdown documentation files change.
+- Required tests: none (documentation only).
+- Verification commands: `git status --short`; `git diff --stat`; `git diff --name-only` (every path ends in `.md`); `git diff docs/engineering/TASKS.md` (no hunk inside the M1 section); repository search for `vertical slice`, `M7`, `Mustapha to write`, `writes the learning log`, `commit automatically`.
+- Learning checkpoint: explain why each backend milestone ends with a frontend integration checkpoint instead of connecting the frontend once in M7, and what M7 is still for.
+- Completion evidence (2026-11-17, against base `93a1f3d`):
+  - `git status --short`: eight modified Markdown files (`CLAUDE.md`, the playbook, and six files in `docs/engineering/`) and one new file, `docs/decisions/0008-staged-frontend-integration.md`. No path outside Markdown documentation changed, so no source, dependency, or configuration file changed.
+  - Index, headline list, and `MASTER_PLAN.md` contain KNAR-302 (depends on KNAR-201, KNAR-301), KNAR-402 (KNAR-401, KNAR-302), KNAR-502 (KNAR-501, KNAR-402), and KNAR-602 (KNAR-601, KNAR-502). KNAR-701 is "Frontend architecture consolidation" and depends on all four; KNAR-801 and KNAR-901 depend on KNAR-701.
+  - `MASTER_PLAN.md` has the nine-step Integration Sequence and a checkpoint gate for M3–M6.
+  - `AGENT_WORKFLOW.md` has Responsibilities, the Task Completion Sequence, and Automated Frontend Checks, citing only commands from `CLAUDE.md` and reporting frontend tests as unavailable.
+  - `git diff -U0 docs/engineering/TASKS.md` has no hunk in KNAR-101 to KNAR-106.
+  - Stale-statement search (`vertical slice`, `M7`, `Mustapha to write`, `writes the learning log`, `commit automatically`, `Draft the learning-log`): remaining old wording is only in accepted ADRs 0001, 0006, 0007 (superseded by ADR 0008, not edited) and the playbook body (under its new precedence note).
+  - Frontend checks omitted: no frontend file and no contract the frontend consumes changed.
+  - Decisions by Mustapha: KNAR-302 uses a temporary request-scoped media upload until KNAR-502; the M7 timing change is recorded in a new ADR rather than by editing accepted ADRs.
+  - Deviation from the request: Mustapha removed the "show the final changed files and diff summary" step during review, so the completion sequence has 12 steps and goes from the documentation updates straight to the commit message.
+
 ---
 
 ## M1: Composition Kernel
@@ -113,7 +155,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-101 — Backend TypeScript toolchain
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-001, KNAR-002
 - Owner/session: lead
@@ -128,11 +170,20 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: smoke test that imports `zod` and runs under Vitest.
 - Verification commands: `cd backend && npm run typecheck && npm test`
 - Learning checkpoint: explain what `strict` and `noUncheckedIndexedAccess` catch, and why the kernel needs a runtime schema in addition to TypeScript types.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `8696131`):
+  - Installed `zod` 4.6.7 (dependency) and `typescript` 7.0.2, `tsx` 4.23.15, `vitest` 5.1.0 (dev dependencies). No other dependency added.
+  - `backend/tsconfig.json` sets `strict`, `noUncheckedIndexedAccess`, `allowJs`, `module`/`moduleResolution` `NodeNext`, and `noEmit`. `checkJs` is off, so existing JavaScript is included but not type-checked.
+  - `npm run typecheck` (`tsc --noEmit`): exit 0. `tsc --listFilesOnly` covers `src/server.js`, `ffmpeg-practice/render.js`, `smoke.test.ts`, and `vitest.config.ts`.
+  - Negative check: a temporary file assigning `xs[0]` of a `number[]` to `number` failed with `TS2322` (`number | undefined`), proving `noUncheckedIndexedAccess` is active; the file was removed.
+  - `npm test` (`vitest run`): 1 file, 2 tests passed (`src/domain/composition/smoke.test.ts` imports `zod`).
+  - `npm run dev` unchanged: against the running nodemon instance (confirmed to be this repository's `src/server.js`, restarted after the `package.json` change), `GET /` returned 200 and `POST /api/demo-render` returned 200 `video/mp4`; ffprobe showed H.264 1080x1920 + AAC, duration 8.000000. `server.js` and `ffmpeg-practice/` are unmodified.
+  - Frontend checks omitted: no frontend file and no contract the frontend consumes changed.
+  - Manual: Mustapha ran the checklist (`npm run typecheck`, `npm test`, Export in the browser) and confirmed it works.
+  - Notes carried forward: npm resolved TypeScript 7 while the frontend uses TypeScript 6; `@types/node` is not installed and needs approval in the first task whose TypeScript uses Node APIs; `tsx` is installed but unused until `server.js` is converted; `npm audit` reported findings that were not changed here.
 
 ### KNAR-102 — Structural Composition schemas v1
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-101
 - Owner/session: lead
@@ -147,7 +198,17 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: valid fixtures; invalid cases for wrong `kind`, negative and fractional times, missing fields, extra keys, wrong `schemaVersion` type.
 - Verification commands: `cd backend && npm run typecheck && npm test -- schema`
 - Learning checkpoint: explain the difference between a structurally valid and a semantically valid Composition.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `b2b0faa`):
+  - `npm run typecheck`: exit 0. `npm test -- schema`: 42 tests passed. `npm test`: 2 files, 44 tests passed.
+  - Times: every time field uses one schema, a non-negative integer of milliseconds; tests reject negative, fractional, numeric-string, `NaN`, `Infinity`, and `null` values.
+  - Strictness: every object is a strict object; tests reject unknown keys on the Composition, a track, a visual clip, an audio clip, an `AssetRef`, and a `RenderPreset`.
+  - `__fixtures__/spike.composition.json` encodes KNAR-000 (3000 ms image, video range 0–5000 ms, music 0–8000 ms with a 2000 ms fade-out) and parses unchanged. `spike.assets.json` holds the three spike assets with dimensions and durations read from the spike media by ffprobe.
+  - Invalid fixtures, each failing at its expected path: `wrong-kind` (`tracks.0.clips.0.kind`), `negative-time` (`tracks.0.clips.0.durationMs`), `fractional-time` (`tracks.0.clips.1.sourceStartMs`), `missing-field` (`tracks.0.clips.1.sourceEndMs`), `extra-key` (`tracks.0.clips.0`, key `filePath`), `schema-version-string` (`schemaVersion`).
+  - Types in `types.ts` are all `z.infer` of the schemas; `vertical-1080p30` parses with `renderPresetSchema` and is registered in `RENDER_PRESETS`.
+  - Kernel boundary: no kernel file imports Express, `fs`, `child_process`, or any Node module; only `zod` and sibling modules.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual: Mustapha ran the checklist and confirmed it works.
+  - Decisions made here: kernel ID format `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$` (reused by KNAR-104); `AssetRef` `durationMs`, `width`, and `height` are nullable, with per-kind requirements left to KNAR-103; `speed` and `volume` are structurally any finite number, with ranges left to KNAR-103; the spike video clip is encoded with `volume: 0` because the spike drops its audio; preset CRF is 20, provisional until M2.
 
 ### KNAR-103 — Semantic Composition validation
 
@@ -221,12 +282,42 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 Expand each into full task entries (and split as needed) at the start of its milestone.
 
+Frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602) connect the existing React frontend to the backend contract its milestone has just stabilized. Each is tested in the browser before the next milestone starts. They do not redesign the approved UI (ADR 0008).
+
 - **KNAR-201 (M2):** `compileRenderPlan` with golden tests: spike Composition, paths with spaces, image/video ordering, speed math, muted audio, limited-range color normalization, validation failures. ADR for a video clip's own audio.
 - **KNAR-301 (M3):** ffprobe adapter, `spawn` executor, progress parser, `AbortSignal` cancellation, partial-output cleanup, real tiny-render integration test with pixel-format and range assertions.
+- **KNAR-302 (M3, frontend checkpoint) — Project-driven synchronous Export integration.** Depends on KNAR-201 and KNAR-301. Replaces the hard-coded render spike with the first project-driven render:
+  - A `toComposition` adapter maps the existing editor state to a valid Composition.
+  - The existing Export control sends that Composition to the backend, which validates it structurally and semantically, compiles it, renders it synchronously, and returns the MP4 for download.
+  - Media: imported files exist only in the browser until M5, so the Export request carries the files the Composition references. The server stores them under server-generated temporary names, never uses the uploaded filenames as paths or FFmpeg arguments, and deletes them after the render. This is temporary and is replaced by KNAR-502. Any upload dependency is approved when this task is expanded.
+  - Out of scope: persistence, background jobs, progress streaming, cancellation, LLM planning, full migration of every editor mutation.
 - **KNAR-401 (M4):** PostgreSQL migrations, repositories, save/reopen API, numeric-revision stale-write protection, immutable versions.
+- **KNAR-402 (M4, frontend checkpoint) — Project save and reopen integration.** Depends on KNAR-401 and KNAR-302. The Dashboard and Editor first stop relying entirely on in-memory project data:
+  - Dashboard project creation creates backend project records.
+  - The current project and its Composition are saved.
+  - A saved project reopens in the existing editor.
+  - Revision and version behavior follows M4 (numeric-revision stale-write protection, explicit immutable versions).
+  - Out of scope: uploaded media (KNAR-502), render jobs (KNAR-602).
 - **KNAR-501 (M5):** storage adapter, safe uploads, probe persistence, thumbnails and proxies, path-escape and idempotency tests.
+- **KNAR-502 (M5, frontend checkpoint) — Asset ingestion and proxy integration.** Depends on KNAR-501 and KNAR-402:
+  - The existing media-import interface uploads to the backend.
+  - The editor stores and uses backend asset identifiers.
+  - The editor displays persisted metadata, thumbnails, and editing proxies.
+  - Originals are preserved and used for final rendering; the temporary Export upload from KNAR-302 is removed.
+  - Out of scope: redesigning the media-import UI.
 - **KNAR-601 (M6):** in-process job queue, state machine, SSE progress, cancel/retry, authorized download, restricted CORS.
-- **KNAR-701 (M7):** `toComposition` adapter, `Editor*` type renames, all editor mutations via `EditOperation`s, browser acceptance flow.
+- **KNAR-602 (M6, frontend checkpoint) — Asynchronous Export experience.** Depends on KNAR-601 and KNAR-502:
+  - Export creates a render job bound to an immutable project version instead of holding a synchronous request.
+  - The UI displays real render progress.
+  - The UI supports cancellation and retry, and downloads completed exports.
+  - The UI represents the queued, rendering, completed, failed, and cancelled states.
+- **KNAR-701 (M7) — Frontend architecture consolidation.** Depends on KNAR-302, KNAR-402, KNAR-502, and KNAR-602. Consolidates and hardens the staged integrations; it does not begin frontend development:
+  - Route editor mutations through validated `EditOperation`s.
+  - Remove duplicated or obsolete prototype domain logic.
+  - Reconcile frontend types with the committed backend contracts (including the `Editor*` renames).
+  - Complete end-to-end browser acceptance coverage.
+  - Harden error, loading, stale-revision, and recovery states.
+  - Preserve the approved UI unless integration requires a justified change.
 - **KNAR-801 (M8):** `EditPlanner` interface, provider structured output, 20+ fixed evaluation prompts, adversarial output tests.
 - **KNAR-901 (M9):** `media-intelligence/` package (`knarra_mi`): `pyproject.toml`, contract envelope models, `dispatch`, CLI `run --request --result`, exit codes, a trivial `probe` analysis kind, golden contract fixtures, Python tests.
 - **KNAR-902 (M9):** `backend/src/domain/analysis` Zod schemas; `AnalysisRunner` + `ProcessAnalysisRunner` (`spawn`, working directory, `AbortSignal`, timeout, cleanup); Node tests against the shared golden fixtures, plus malformed/wrong-version/mismatched-ID rejection.

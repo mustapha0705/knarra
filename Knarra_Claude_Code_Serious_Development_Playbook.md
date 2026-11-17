@@ -1,5 +1,9 @@
 # Knarra: Claude Code Serious Development Playbook
 
+> **Historical source document.** `docs/engineering/` and `docs/decisions/` are authoritative. Where this playbook differs, they take precedence, in particular:
+> - The frontend is integrated in stages (KNAR-302, KNAR-402, KNAR-502, KNAR-602), and M7 is frontend architecture consolidation, not the first frontend vertical slice (ADR 0008).
+> - The agent writes the task evidence, `CURRENT_STATE.md` updates, and learning-log entries; Mustapha tests, approves, and runs every commit (`docs/engineering/AGENT_WORKFLOW.md`).
+
 ## Where Knarra Is Now
 
 The FFmpeg render spike is complete. It proved the full media-processing core at the command line:

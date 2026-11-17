@@ -32,6 +32,11 @@ Knarra is an AI-assisted, non-destructive video editor. The Canvas organizes sou
 - Run the narrowest relevant tests first, then the required project checks.
 - Report commands run, results, remaining risks, and files changed.
 - Never mark a task complete without evidence matching its acceptance criteria.
+- Follow the Task Completion Sequence in `docs/engineering/AGENT_WORKFLOW.md`: present automated results and a manual test checklist, then stop; only after Mustapha confirms the task passes, update task status, completion evidence, `CURRENT_STATE.md`, and the learning log yourself; propose one commit message and stop.
+- Never commit. Mustapha runs every Git commit. Do not start the next task until Mustapha confirms the commit and a clean working tree.
+- Never ask Mustapha to hand-edit task evidence, `CURRENT_STATE.md`, or the learning log.
+- Frontend checks: if frontend files change, or a backend contract the frontend consumes changes, run the frontend type-check, lint, and build below. If a task is isolated from the frontend, say why the checks were omitted. Automated checks never replace the manual browser test, and never claim a browser test you did not perform.
+- The existing frontend is integrated in stages (KNAR-302, KNAR-402, KNAR-502, KNAR-602; ADR 0008). M7 consolidates it; it is not the first frontend integration.
 
 ## Safety
 - Treat uploaded filenames and metadata as untrusted.
@@ -53,5 +58,10 @@ Frontend (`frontend/`):
 Backend (`backend/`):
 - Install: `npm install`
 - Dev server: `npm run dev` (port 3001; requires `ffmpeg` and `ffprobe` on PATH)
+- Type-check: `npm run typecheck` (`tsc --noEmit`; TypeScript files are strict, existing JavaScript is allowed but not checked)
+- Unit tests: `npm test` (Vitest, `src/**/*.test.ts`); one area: `npm test -- <name>`, for example `npm test -- schema`
+- M1 verification: `npm run typecheck && npm test`
 
-Not yet available: unit tests, integration tests, backend type-check, migrations, render fixtures. KNAR-101 and later tasks add them and must update this section.
+Backend commands verified on 2026-11-17 (KNAR-101: TypeScript 7.0.2, Vitest 5.1.0, Zod 4.6.7, tsx 4.23.15).
+
+Not yet available: frontend tests, integration tests, backend lint, migrations, render fixtures. Later tasks add them and must update this section.

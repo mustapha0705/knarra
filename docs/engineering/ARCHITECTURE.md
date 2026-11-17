@@ -7,14 +7,14 @@ This describes the target architecture. `CURRENT_STATE.md` describes what exists
 | Component | Location (target) | Responsibility | Milestone |
 | --- | --- | --- | --- |
 | Editor UI | `frontend/src/features/editor` | Canvas, Timeline, review-before-apply, local planner | exists |
-| Composition adapter | `frontend/src/features/editor` (new module) | `toComposition(editorProject)` and back | M7 |
+| Composition adapter | `frontend/src/features/editor` (new module) | `toComposition(editorProject)` and back | KNAR-302 (M3), extended by KNAR-402–602, consolidated in M7 |
 | Composition kernel | `backend/src/domain/composition` | Zod schemas, types, semantic validation, edit-operation reducer, migrations | M1 |
 | Render compiler | `backend/src/render/compiler` | `compileRenderPlan(composition, assets, preset): RenderPlan`; pure | M2 |
 | FFmpeg executor, probe | `backend/src/media` | `spawn` adapter, progress parser, cancellation, ffprobe JSON adapter | M3 |
 | Persistence | `backend/src/persistence` | PostgreSQL repositories, migrations, optimistic concurrency | M4 |
 | Storage | `backend/src/storage` | Storage adapter (local filesystem first), server-generated paths | M5 |
 | Jobs | `backend/src/jobs` | In-process queue (concurrency 1), state machine, SSE progress | M6 |
-| API | `backend/src/api` | Thin Express routes: parse, call a service, map errors | M4–M7 |
+| API | `backend/src/api` | Thin Express routes: parse, call a service, map errors | M3–M7 |
 | Planner | `backend/src/planner` | `EditPlanner` provider interface; emits `EditOperation`s only | M8 |
 | Analysis runner | `backend/src/analysis` | `AnalysisRunner` interface; process implementation invokes the Python CLI | M9 |
 | Analysis contracts | `backend/src/domain/analysis` | Versioned Zod schemas for analysis results; validation before persistence | M9 |
@@ -103,7 +103,9 @@ Entry points:
 - `validateComposition(composition, assets)`
 - `applyOperations(composition, ops, assets)`: pure and atomic; validates ops, applies to a copy, re-validates, returns `Result<Composition, Issue[]>`.
 
-### Frontend Mapping (M7)
+### Frontend Mapping (staged: KNAR-302 to M7)
+
+The existing frontend is connected in stages (ADR 0008). The `toComposition` adapter introduced by KNAR-302 implements the clip and track rows; server asset records arrive with KNAR-502; the `Editor*` renames and routing every mutation through `EditOperation`s complete in M7.
 
 | Frontend today | Composition v1 |
 | --- | --- |
@@ -118,7 +120,7 @@ Entry points:
 
 ## Media Intelligence Subsystem (M9+)
 
-Decision record: ADR 0007. Scheduled after the M7 vertical slice.
+Decision record: ADR 0007. Scheduled after the M7 frontend architecture consolidation.
 
 **Responsibilities:** scene and shot detection, beat and tempo analysis, transcription, motion and color analysis, visual embeddings, reference-video `StyleProfile` generation, asset similarity and ranking.
 
@@ -168,5 +170,6 @@ All paths are generated on the server from IDs. Uploaded filenames are kept only
 - Model output becomes `EditOperation`s only, and passes the same validation as manual edits.
 - Uploaded filenames and metadata are untrusted; they never become filesystem paths or FFmpeg arguments.
 - FFmpeg receives only compiler-generated arguments containing server-resolved paths.
-- CORS is restricted and the server binds to a configured host before the UI is connected to real services (M6/M7).
+- CORS is restricted and the server binds to a configured host in M6 (KNAR-601). The earlier integration checkpoints (KNAR-302, KNAR-402, KNAR-502) run in local development only.
+- Until M5, media sent with a KNAR-302 Export request is held under server-generated temporary names and deleted after the render.
 - Python analysis output is untrusted input to Node: validated before persistence, never executed, and never used as a filesystem path or FFmpeg argument.

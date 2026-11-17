@@ -1,0 +1,26 @@
+[
+  {
+    "id": "asset-pic",
+    "kind": "image",
+    "durationMs": null,
+    "width": 1920,
+    "height": 1080,
+    "hasAudio": false
+  },
+  {
+    "id": "asset-vid",
+    "kind": "video",
+    "durationMs": 229005,
+    "width": 1280,
+    "height": 720,
+    "hasAudio": true
+  },
+  {
+    "id": "asset-aud",
+    "kind": "audio",
+    "durationMs": 198200,
+    "width": null,
+    "height": null,
+    "hasAudio": true
+  }
+]
