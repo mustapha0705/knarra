@@ -79,6 +79,17 @@ export function parseComposition(
   );
   if (!migrated.ok) return migrated;
 
-  const parsed = compositionSchema.safeParse(migrated.value);
-  return parsed.success ? ok(parsed.data) : err(structuralIssues(parsed.error.issues));
+  try {
+    const parsed = compositionSchema.safeParse(migrated.value);
+    return parsed.success ? ok(parsed.data) : err(structuralIssues(parsed.error.issues));
+  } catch {
+    // Untrusted input must never crash the caller, whatever its shape.
+    return err([
+      {
+        code: "INVALID_STRUCTURE",
+        path: [],
+        message: "This composition is not plain JSON data or is nested too deeply to read.",
+      },
+    ]);
+  }
 }

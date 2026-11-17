@@ -179,3 +179,46 @@ describe("parseComposition: migration registry (synthetic v0 -> v1)", () => {
     expect(issues[0]?.message).toContain("visualTrack is missing");
   });
 });
+
+describe("parseComposition: hostile input never throws", () => {
+  const deep = (depth: number): Record<string, unknown> =>
+    JSON.parse(`{"schemaVersion":1,"x":${"[".repeat(depth)}${"]".repeat(depth)}}`) as Record<string, unknown>;
+
+  it("returns issues for very deeply nested current-version data", () => {
+    const codes = rejected(deep(20_000)).map((issue) => issue.code);
+
+    expect(new Set(codes)).toEqual(new Set(["INVALID_STRUCTURE"]));
+  });
+
+  it("returns issues for very deeply nested data that needs a migration", () => {
+    const input = { ...deep(20_000), schemaVersion: 0 };
+
+    expect(summary(rejected(input, TEST_MIGRATIONS))).toEqual([["INVALID_STRUCTURE", []]]);
+  });
+
+  it("returns issues for circular and non-JSON values", () => {
+    const circular: Record<string, unknown> = { schemaVersion: 1 };
+    circular.self = circular;
+
+    expect(rejected(circular)[0]?.code).toBe("INVALID_STRUCTURE");
+    expect(rejected({ ...clone(spikeCompositionJson), id: 1n })[0]?.code).toBe("INVALID_STRUCTURE");
+  });
+
+  it("ignores a toJSON method instead of trusting what it returns", () => {
+    const result = parseComposition({ schemaVersion: 1, toJSON: () => spikeCompositionJson });
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects times beyond the 24 hour bound", () => {
+    const input = clone(spikeCompositionJson) as { id: unknown };
+    const huge = { ...input, tracks: [
+      (spikeCompositionJson.tracks[0]),
+      { ...spikeCompositionJson.tracks[1], clips: [{ ...spikeCompositionJson.tracks[1]!.clips[0], timelineStartMs: Number.MAX_SAFE_INTEGER }] },
+    ] };
+
+    expect(summary(rejected(huge))).toEqual([
+      ["INVALID_STRUCTURE", ["tracks", 1, "clips", 0, "timelineStartMs"]],
+    ]);
+  });
+});

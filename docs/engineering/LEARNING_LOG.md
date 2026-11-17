@@ -242,3 +242,28 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
+
+---
+
+## KNAR-201 — Deterministic render compiler (2026-11-17)
+
+1. **What problem does this layer solve?**
+   It turns "the video to render" (a Composition) into "exactly what to tell FFmpeg" (a plan). The spike hard-coded one command for three fixed files; this produces the equivalent command for any valid Composition.
+
+2. **What inputs and outputs cross its boundary?**
+   Input: a Composition, the assets with their server-resolved file paths, and a render preset. Output: a `RenderPlan` with the inputs, the filtergraph text, the output arguments, and the expected duration, or a list of issues. It reads no files and starts no process.
+
+3. **What invariant does it protect?**
+   Invariant 6 (the compiler is a deterministic, pure function) and invariant 7 (FFmpeg gets an argument array, never a shell string). Because it is pure, its entire behavior can be tested by comparing text, in milliseconds, without FFmpeg installed. Paths never enter the filtergraph: inputs are referred to by number (`[1:v]`), so a filename with spaces, quotes, or semicolons cannot change the meaning of the graph. Paths that FFmpeg itself would treat specially, such as `-i` or `concat:a|b`, are rejected.
+
+4. **What failure case did the test expose?**
+   Two, and they needed different kinds of test. The spike's output was full range (`yuvj420p`) because `format=yuv420p` changes the pixel layout but not the range; the plan now converts with `out_range=tv` and tags the output, and golden tests pin that text. The second was invisible to text comparison: when a sped-up clip's audio was delayed and mixed with music, the mixed audio stream came out 0.02 seconds long. Only a real render showed it. Golden tests prove the plan is what was intended; only real renders prove the intention was right, which is why M3 adds them.
+
+5. **How would I diagnose it without Claude?**
+   - Print `plan.filterGraph.split(";")` to read one chain per line.
+   - Run the arguments by hand and probe the result: `ffprobe -v error -show_entries stream=codec_name,pix_fmt,color_range,duration -of default=nw=1 out.mp4`.
+   - For audio, measure a time window: `ffmpeg -i out.mp4 -af "atrim=3:5,volumedetect" -f null -` and read `mean_volume` (about -91 dB is silence).
+   - Cut the graph down one filter at a time until the problem disappears.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was completed overnight under my delegation and is waiting for my review.

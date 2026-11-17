@@ -1,4 +1,5 @@
 import { err, ok, structuralIssues, type Issue, type IssuePath, type Result } from "./issues.js";
+import { compositionSchema } from "./schema.js";
 import { editOperationsSchema, type EditOperation, type NewVisualClip } from "./operations.js";
 import type { AssetRef, AudioClip, Composition, VisualClip } from "./types.js";
 import { expectedVideoDurationMs, validateComposition } from "./validate.js";
@@ -33,8 +34,14 @@ export function applyOperations(
     if (issue) return err([issue]);
   }
 
-  const issues = validateComposition(draft, assets);
-  return issues.length > 0 ? err(issues) : ok(draft);
+  // The result must be storable: re-check its structure (which also rejects
+  // unknown keys carried in by an unparsed input and derived values that are
+  // out of bounds), then its semantics.
+  const structure = compositionSchema.safeParse(draft);
+  if (!structure.success) return err(structuralIssues(structure.error.issues));
+
+  const issues = validateComposition(structure.data, assets);
+  return issues.length > 0 ? err(issues) : ok(structure.data);
 }
 
 type Located =

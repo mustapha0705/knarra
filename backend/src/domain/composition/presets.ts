@@ -2,7 +2,7 @@ import type { RenderPreset } from "./types.js";
 
 /**
  * Vertical 1080x1920 at 30 fps, H.264 in limited-range yuv420p, AAC stereo.
- * The CRF value is provisional; M2 (render compiler) confirms encoder settings.
+ * CRF 20 with the x264 "medium" preset: visually clean at a moderate file size.
  */
 export const VERTICAL_1080P30: RenderPreset = {
   id: "vertical-1080p30",
@@ -13,6 +13,7 @@ export const VERTICAL_1080P30: RenderPreset = {
   pixelFormat: "yuv420p",
   colorRange: "tv",
   crf: 20,
+  encoderPreset: "medium",
   audioCodec: "aac",
   audioBitrateKbps: 192,
   audioSampleRateHz: 48000,

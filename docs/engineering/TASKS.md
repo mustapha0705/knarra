@@ -1,6 +1,6 @@
 # Tasks
 
-Work one task at a time. A task is done only when its completion evidence matches its acceptance criteria and the learning-log entry exists. M2–M9 tasks, including the frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602), are headlines; expand them into full entries at the start of their milestone. Every task follows the completion sequence in `AGENT_WORKFLOW.md`.
+Work one task at a time. A task is done only when its completion evidence matches its acceptance criteria and the learning-log entry exists. M3–M9 tasks, including the frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602), are headlines; expand them into full entries at the start of their milestone. Every task follows the completion sequence in `AGENT_WORKFLOW.md`.
 
 Statuses: `ready | in-progress | blocked | review | done | planned`.
 
@@ -18,7 +18,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-104 | done | M1 | EditOperation v1 schema | KNAR-102 |
 | KNAR-105 | done | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
 | KNAR-106 | done | M1 | Schema version and migration boundary | KNAR-102 |
-| KNAR-201 | planned | M2 | Deterministic render compiler | M1 |
+| KNAR-201 | done | M2 | Deterministic render compiler | M1 |
 | KNAR-301 | planned | M3 | FFmpeg executor and media probe | KNAR-201 |
 | KNAR-302 | planned | M3 | Project-driven synchronous Export integration (frontend checkpoint) | KNAR-201, KNAR-301 |
 | KNAR-401 | planned | M4 | Project persistence and versions | M1 |
@@ -314,13 +314,55 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ---
 
-## M2–M9: Headline Tasks
+## M2: Deterministic Render Compiler
+
+Branch `feat/render-compiler`, stacked on `feat/composition-kernel`. Code lives in `backend/src/render/compiler/` and imports only the Composition kernel: no file access and no processes.
+
+### KNAR-201 — Deterministic render compiler
+
+- Status: done
+- Milestone: M2
+- Depends on: M1 (KNAR-101 to KNAR-106)
+- Owner/session: lead
+- Intended files: `backend/src/render/compiler/{compile.ts,types.ts,index.ts,compile.test.ts}`, `backend/src/render/compiler/__fixtures__/spike.plan.json`, `backend/src/domain/composition/{schema.ts,presets.ts,issues.ts}` (encoder settings on `RenderPreset`, compiler issue codes), `docs/decisions/0009-video-clip-audio.md`, `docs/engineering/ARCHITECTURE.md`
+- Goal: `compileRenderPlan(composition, assets, preset)` returns a `RenderPlan` (resolved inputs, filtergraph, output arguments, expected duration, safe diagnostics) or issues, as a pure function.
+- Non-goals: running FFmpeg, probing media, writing files, progress, cancellation (M3); any API route; transitions or extra visual layers.
+- Acceptance criteria:
+  - The same input always gives an identical plan; inputs are not mutated.
+  - Golden tests cover the spike as Composition JSON, paths with spaces, image/video ordering, speed math, muted audio, limited-range color normalization, and validation failures.
+  - The plan emits limited-range `yuv420p` explicitly, with explicit CRF, encoder preset, sample rate, and channel count.
+  - Paths appear only as their own argument-array elements, never in the filtergraph; paths that FFmpeg could read as an option or a protocol are rejected.
+  - An ADR records how a video clip's own audio is handled.
+  - The compiler imports nothing outside the kernel.
+- Required tests: golden plan for the spike; argument order; path cases; ordering; speed and tempo cases; audio mixing, muting, and silence; color normalization; validation failures.
+- Verification commands: `cd backend && npm run typecheck && npm test -- compile`
+- Learning checkpoint: explain why the compiler is a pure function that returns arguments instead of running FFmpeg itself, and why paths never enter the filtergraph.
+- Completion evidence (2026-11-17, branch `feat/render-compiler`, against base `2cd0f3d`):
+  - `npm run typecheck`: exit 0. `npm test -- compile`: 50 tests passed. `npm test`: 7 files, 295 tests passed.
+  - Golden: the spike Composition compiles to exactly `__fixtures__/spike.plan.json`, and `buildFfmpegArgs` gives a fixed, fully asserted argument array. Compiling twice gives byte-identical JSON; deep-frozen inputs are not mutated.
+  - Paths: a path with spaces, quotes, `$`, backticks, `;`, and `&` is passed as one unmodified array element after `-i`; no path appears in the filtergraph. Empty, relative, option-like (`-i`), `concat:`, `http:`, and NUL-containing paths are rejected with `ASSET_PATH_INVALID`; an unsafe output path throws.
+  - Ordering: one input per visual clip in track order; the same asset used twice gets two inputs; a single-clip composition compiles.
+  - Speed math: source range becomes `-ss`/`-t`; `setpts` divides by the speed; speeds 0.25, 0.5, 1.5, and 4 give the expected clip lengths; clip audio is retimed with `atempo` stages kept between 0.5 and 2 (for example 0.25 becomes two 0.5 stages).
+  - Muted audio: a video clip with volume 0, or whose asset has no audio, uses no `[n:a]` stream; a background clip with volume 0 is skipped and its file is not opened; with nothing audible the plan generates silence.
+  - Color: every visual chain contains `in_range=auto:out_range=tv` and ends in `format=yuv420p`; output arguments set `-pix_fmt yuv420p -color_range tv`, plus explicit `-crf`, `-preset`, `-ar`, and `-ac`.
+  - Validation failures: an invalid Composition, an empty visual track, a range past the asset's end, and a mismatched preset return issues and no plan.
+  - Real-render sanity check, done outside the test suite with the spike media: the spike plan rendered to H.264 1080x1920, `yuv420p`, `color_range=tv`, 30 fps, AAC 48 kHz stereo, duration 8.000000. This is the spike's `yuvj420p`/full-range defect fixed. Automated real-render tests belong to M3.
+  - Defect found by that real render and fixed here: with `atempo` followed by `adelay`, `amix` received timestamps running backwards and the mixed audio stream was 0.02 s long. Every audio source now ends with `asetpts=N/SR/TB`; the same render then gave 5.500000 s of audio, silent before the clip and audible during it.
+  - ADR 0009 records that a video clip's own audio is mixed, scaled by its volume.
+  - Boundary: `backend/src/render/compiler` imports only the kernel; no Node module.
+  - Kernel changes made for M2: `RenderPreset` gains `encoderPreset` and `audioChannels` is limited to 1 or 2; issue codes `PRESET_MISMATCH` and `ASSET_PATH_INVALID`.
+  - M1 review follow-up, included in this commit: an independent read-only review of the kernel found no high-severity defect and two medium ones, both fixed with tests. (1) A video clip could validate with a 0 ms duration; video clips must now last at least 100 ms (`VIDEO_DURATION_TOO_SHORT`). (2) `parseComposition` threw on very deeply nested, circular, or non-JSON input; it now returns `INVALID_STRUCTURE`, and no longer copies data that needs no migration. Also fixed: times are bounded to 24 hours so arithmetic stays exact, and `applyOperations` re-parses its result structurally, which rejects unknown keys on an unparsed input. Noted, not changed: issue messages can echo untrusted key names, so they must be escaped wherever they are displayed.
+  - Frontend checks omitted: nothing the frontend builds from or consumes changed.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
+
+---
+
+## M3–M9: Headline Tasks
 
 Expand each into full task entries (and split as needed) at the start of its milestone.
 
 Frontend integration checkpoints (KNAR-302, KNAR-402, KNAR-502, KNAR-602) connect the existing React frontend to the backend contract its milestone has just stabilized. Each is tested in the browser before the next milestone starts. They do not redesign the approved UI (ADR 0008).
 
-- **KNAR-201 (M2):** `compileRenderPlan` with golden tests: spike Composition, paths with spaces, image/video ordering, speed math, muted audio, limited-range color normalization, validation failures. ADR for a video clip's own audio.
 - **KNAR-301 (M3):** ffprobe adapter, `spawn` executor, progress parser, `AbortSignal` cancellation, partial-output cleanup, real tiny-render integration test with pixel-format and range assertions.
 - **KNAR-302 (M3, frontend checkpoint) — Project-driven synchronous Export integration.** Depends on KNAR-201 and KNAR-301. Replaces the hard-coded render spike with the first project-driven render:
   - A `toComposition` adapter maps the existing editor state to a valid Composition.

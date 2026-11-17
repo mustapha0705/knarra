@@ -334,3 +334,42 @@ describe("applyOperations: all or nothing", () => {
     ).toEqual([["VISUAL_TRACK_EMPTY", ["tracks", 0, "clips"]]]);
   });
 });
+
+describe("applyOperations: the result is always storable", () => {
+  it("rejects a batch that shrinks a video clip to nothing", () => {
+    expect(
+      rejected([
+        { op: "trimClip", clipId: "clip-video-1", sourceStartMs: 0, sourceEndMs: 1 },
+        { op: "setClipSpeed", clipId: "clip-video-1", speed: 4 },
+      ]),
+    ).toEqual([["VIDEO_DURATION_TOO_SHORT", ["tracks", 0, "clips", 1, "durationMs"]]]);
+  });
+
+  it("rejects an input composition that carries an unknown key", () => {
+    const smuggled = clone(composition);
+    (smuggled.tracks[0].clips[0] as unknown as Record<string, unknown>).filePath = "C:/secret.png";
+
+    const result = applyOperations(smuggled, [{ op: "setClipVolume", clipId: "clip-music-1", volume: 0.5 }], assets);
+
+    expect(result).toEqual({
+      ok: false,
+      error: [expect.objectContaining({ code: "INVALID_STRUCTURE", path: ["tracks", 0, "clips", 0] })],
+    });
+  });
+
+  it("moves a clip forward in a three-clip track", () => {
+    const result = applied(
+      { op: "appendClip", clip: newImage },
+      { op: "moveClip", clipId: "clip-image-1", toIndex: 2 },
+    );
+
+    expect(visualIds(result)).toEqual(["clip-video-1", "clip-image-2", "clip-image-1"]);
+  });
+
+  it("does not throw on deeply nested operations", () => {
+    let nested: unknown = [];
+    for (let depth = 0; depth < 20_000; depth += 1) nested = [nested];
+
+    expect(applyOperations(composition, nested, assets).ok).toBe(false);
+  });
+});

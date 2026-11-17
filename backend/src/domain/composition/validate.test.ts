@@ -413,6 +413,36 @@ describe("validateComposition", () => {
     });
   });
 
+  describe("video duration is at least 100 ms", () => {
+    it("accepts a 100 ms video clip", () => {
+      const issues = issuesAfter((c) => {
+        Object.assign(videoClip(c), { sourceEndMs: 100, durationMs: 100 });
+      });
+      expect(issues).toEqual([]);
+    });
+
+    it("rejects a clip whose range and speed round to 0 ms", () => {
+      const issues = issuesAfter((c) => {
+        Object.assign(videoClip(c), { sourceEndMs: 1, speed: 4, durationMs: 0 });
+      });
+      expect(summary(issues)).toEqual([["VIDEO_DURATION_TOO_SHORT", [...VIDEO, "durationMs"]]]);
+    });
+
+    it("rejects a 99 ms video clip even when other clips give the track a duration", () => {
+      const issues = issuesAfter((c) => {
+        Object.assign(videoClip(c), { sourceEndMs: 99, durationMs: 99 });
+      });
+      expect(summary(issues)).toEqual([["VIDEO_DURATION_TOO_SHORT", [...VIDEO, "durationMs"]]]);
+    });
+  });
+
+  it("rejects two tracks with the same ID", () => {
+    const issues = issuesAfter((c) => {
+      c.tracks[1].id = c.tracks[0].id;
+    });
+    expect(summary(issues)).toEqual([["DUPLICATE_ID", ["tracks", 1, "id"]]]);
+  });
+
   it("reports every problem in a composition with several", () => {
     const issues = issuesAfter((c) => {
       imageClip(c).durationMs = 50;

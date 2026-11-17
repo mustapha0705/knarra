@@ -70,7 +70,7 @@ Changing an invariant requires a new ADR.
 
 ## Composition v1 Model
 
-All times are integer milliseconds (ADR 0005).
+All times are integer milliseconds (ADR 0005), from 0 to 24 hours.
 
 - `AssetRef` (the catalog the kernel validates against; not an upload record): `{ id, kind: 'image' | 'video' | 'audio', durationMs: int | null, width, height, hasAudio }`
 - Clips:
@@ -81,7 +81,7 @@ All times are integer milliseconds (ADR 0005).
   - `VisualTrack { id, kind: 'visual', clips: (ImageClip | VideoClip)[] }`: sequential; start times derive from array order.
   - `AudioTrack { id, kind: 'audio', clips: AudioClip[] }`
 - `Composition { schemaVersion: 1, id, presetId, tracks: [VisualTrack, AudioTrack] }`: exactly one track of each kind in v1.
-- `RenderPreset` `vertical-1080p30`: 1080x1920, 30 fps, H.264, `yuv420p`, `colorRange: 'tv'`, CRF, AAC 192k / 48 kHz / stereo.
+- `RenderPreset` `vertical-1080p30`: 1080x1920, 30 fps, H.264, `yuv420p`, `colorRange: 'tv'`, CRF 20, x264 preset `medium`, AAC 192k / 48 kHz / stereo.
 - `EditOperation` v1, discriminated on `op`: `appendClip`, `insertClip { index }`, `removeClip { clipId }`, `moveClip { clipId, toIndex }`, `trimClip { clipId, sourceStartMs, sourceEndMs }`, `setClipSpeed`, `setImageDuration`, `setClipVolume`, `setBackgroundAudio`. `splitClip` is deferred.
 
 Semantic rules (each issue has a stable `code`, a `path`, and a `message`):
@@ -92,16 +92,28 @@ Semantic rules (each issue has a stable `code`, a `path`, and a `message`):
 - Speed is between 0.25 and 4.
 - Video `durationMs = round((sourceEndMs − sourceStartMs) / speed)`, within ±1 ms.
 - Image duration is between 100 ms and 60 s.
+- Video clip duration is at least 100 ms.
 - Volume is between 0 and 1.
 - Audio clips do not overlap.
 - Total visual duration is greater than 0.
-- Fades are no longer than their clip.
+- Fades are no longer than their clip, separately and together.
+- A referenced video or audio asset has a known duration; a referenced image or video asset has known dimensions.
 
 Entry points:
 
 - `parseComposition(unknown)`: read `schemaVersion`, run registered migrations, strict Zod parse.
 - `validateComposition(composition, assets)`
 - `applyOperations(composition, ops, assets)`: pure and atomic; validates ops, applies to a copy, re-validates, returns `Result<Composition, Issue[]>`.
+
+### Render Plan (M2)
+
+`compileRenderPlan(composition, assets, preset)` in `backend/src/render/compiler` returns `Result<RenderPlan, Issue[]>`. It validates the Composition first and compiles nothing if it is invalid.
+
+- `RenderAsset` is an `AssetRef` plus a server-resolved absolute `path`. Paths that are empty, relative, or could be read by FFmpeg as an option or protocol are rejected.
+- `RenderPlan { inputs, filterGraph, outputArgs, expectedDurationMs, diagnostics }`. `buildFfmpegArgs(plan, outputPath)` produces the argument array for `spawn`.
+- One input per visual clip in track order, then one per audible background clip. Paths appear only as argument-array elements; the filtergraph refers to inputs by index.
+- Each visual clip is scaled and padded to the preset size, converted to limited range (`out_range=tv`) and `yuv420p`, set to the preset frame rate, and cut to its exact duration; the clips are then concatenated.
+- Audio: a video clip's own audio is mixed with the background track, scaled by the clip's volume (ADR 0009). Every audio source is resampled to the preset format and placed on the timeline. The output always has exactly one audio stream of the video's length; silence is generated when nothing is audible.
 
 ### Frontend Mapping (staged: KNAR-302 to M7)
 

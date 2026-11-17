@@ -26,7 +26,21 @@ export function migrateToVersion(
   targetVersion: number,
   registry: MigrationRegistry,
 ): Result<Record<string, unknown>, Issue[]> {
-  let current = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+  // Nothing to upgrade: hand the data to the strict parse as it is.
+  if (fromVersion >= targetVersion) return ok(data);
+
+  let current: Record<string, unknown>;
+  try {
+    current = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+  } catch {
+    return err([
+      {
+        code: "INVALID_STRUCTURE",
+        path: [],
+        message: "This composition is not plain JSON data or is nested too deeply to read.",
+      },
+    ]);
+  }
 
   for (let version = fromVersion; version < targetVersion; version += 1) {
     const migration = registry.get(version);

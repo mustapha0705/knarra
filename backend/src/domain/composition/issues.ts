@@ -16,6 +16,7 @@ export const ISSUE_CODES = [
   "SPEED_OUT_OF_RANGE",
   "DURATION_MISMATCH",
   "IMAGE_DURATION_OUT_OF_RANGE",
+  "VIDEO_DURATION_TOO_SHORT",
   "VOLUME_OUT_OF_RANGE",
   "AUDIO_CLIPS_OVERLAP",
   "VISUAL_TRACK_EMPTY",
@@ -30,6 +31,9 @@ export const ISSUE_CODES = [
   "SCHEMA_VERSION_UNSUPPORTED",
   "SCHEMA_VERSION_TOO_NEW",
   "MIGRATION_FAILED",
+  // Failures while compiling a render plan (compileRenderPlan).
+  "PRESET_MISMATCH",
+  "ASSET_PATH_INVALID",
 ] as const;
 
 export type IssueCode = (typeof ISSUE_CODES)[number];
@@ -81,6 +85,7 @@ export const MIN_SPEED = 0.25;
 export const MAX_SPEED = 4;
 export const MIN_IMAGE_DURATION_MS = 100;
 export const MAX_IMAGE_DURATION_MS = 60_000;
+export const MIN_VIDEO_DURATION_MS = 100;
 export const MIN_VOLUME = 0;
 export const MAX_VOLUME = 1;
 export const DURATION_TOLERANCE_MS = 1;

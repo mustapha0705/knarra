@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-17 at commit `cc0eab0` plus the KNAR-106 changes (M1 complete) (branch `feat/composition-kernel`).
+Last verified: 2026-11-17 at commit `2cd0f3d` plus the KNAR-201 changes (M1 and M2 complete; branch `feat/render-compiler`).
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -42,6 +42,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 | EditOperation v1 schema | Strict discriminated union on `op`: `appendClip`, `insertClip`, `removeClip`, `moveClip`, `trimClip`, `setClipSpeed`, `setImageDuration`, `setClipVolume`, `setBackgroundAudio`; batches of 1 to 200 | `backend/src/domain/composition/operations.ts`, `operations.test.ts` |
 | Edit-operation reducer | `applyOperations(composition, operations, assets)`: parses the operations, applies them to a copy, re-validates, and returns a new Composition or issues. Pure and all-or-nothing. Not called by the server or the frontend yet | `backend/src/domain/composition/reducer.ts`, `reducer.test.ts` |
 | Versioned Composition parsing | `parseComposition(unknown)`: checks `schemaVersion`, runs registered migrations to the current version, then the strict parse. The production migration registry is empty (version 1 is the only version) | `backend/src/domain/composition/{parse,migrations}.ts`, `parse.test.ts` |
+| Render compiler | `compileRenderPlan(composition, assets, preset)`: pure function from a valid Composition to FFmpeg inputs, filtergraph, and output arguments; limited-range `yuv420p`; clip audio mixed with background audio (ADR 0009). Not called by the server yet; nothing executes its plans until M3 | `backend/src/render/compiler/{compile,types,index}.ts`, `compile.test.ts` |
 
 ## Stubbed or Mocked
 
@@ -56,7 +57,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 
 - Persistence: no database, migrations, project storage, uploads, or storage layout.
 - Server-side ffprobe, progress reporting, cancellation, job state, partial-output cleanup on success paths.
-- Tests: the backend has unit tests for the kernel only (232 tests). No integration tests or render fixtures. The frontend has no test runner.
+- Tests: the backend has unit tests for the kernel only (295 tests). No integration tests or render fixtures. The frontend has no test runner.
 - Runtime validation in product code: the kernel schemas exist, but no request, saved project, or edit passes through them yet.
 - Backend TypeScript source (toolchain only so far), `@types/node`, backend linting, CI, pre-commit hooks, Prettier, `.editorconfig`.
 - `.env.example`, configuration loading (port is hardcoded `3001`), structured logging.
@@ -71,7 +72,7 @@ This document records what genuinely exists. Update it whenever a task changes w
 | `npx eslint .` (frontend) | Pass, 0 problems |
 | `npm run build` (frontend) | Not run during audit (writes `dist/`); a prior build exists |
 | `npm run typecheck` (backend, 2026-11-17) | Pass, 0 errors |
-| `npm test` (backend, 2026-11-17) | Pass, 232 tests |
+| `npm test` (backend, 2026-11-17) | Pass, 295 tests |
 
 ## Known Defects
 

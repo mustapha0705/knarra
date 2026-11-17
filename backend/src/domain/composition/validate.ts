@@ -5,6 +5,7 @@ import {
   MAX_VOLUME,
   MIN_IMAGE_DURATION_MS,
   MIN_SPEED,
+  MIN_VIDEO_DURATION_MS,
   MIN_VOLUME,
   type Issue,
   type IssueCode,
@@ -176,6 +177,13 @@ export function validateComposition(
           "DURATION_MISMATCH",
           [...clipPath, "durationMs"],
           `Duration ${clip.durationMs} ms does not match the source range and speed, which give ${expected} ms. Set the duration to ${expected} ms.`,
+        );
+      } else if (clip.durationMs < MIN_VIDEO_DURATION_MS) {
+        // A clip can pass the range and speed rules and still round to nothing.
+        report(
+          "VIDEO_DURATION_TOO_SHORT",
+          [...clipPath, "durationMs"],
+          `A video clip of ${clip.durationMs} ms is too short to show. Use a longer source range or a lower speed so it lasts at least ${MIN_VIDEO_DURATION_MS} ms.`,
         );
       }
     }
