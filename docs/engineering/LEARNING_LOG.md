@@ -169,3 +169,28 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    Nothing yet. This task was completed overnight under my delegation and is waiting for my review.
+
+---
+
+## KNAR-104 — EditOperation v1 schema (2026-11-17)
+
+1. **What problem does this layer solve?**
+   It defines the complete list of ways a Composition may change. Anything that is not one of the nine operations, in exactly the right shape, is not an edit.
+
+2. **What inputs and outputs cross its boundary?**
+   Input: `unknown` data, from the UI today and from an LLM plan in M8. Output: a typed `EditOperation`, or issues with paths such as `1.clipId` for the second operation of a batch.
+
+3. **What invariant does it protect?**
+   Invariant 4: the LLM emits allowlisted edit operations, never FFmpeg commands, shell fragments, paths, or storage locations. This schema enforces that before any LLM exists, by construction: operations are strict objects, so no extra field can ride along; the only strings are `op` (a fixed list) and IDs (letters, digits, `_`, `-`); everything else is a number. There is nowhere to put a path or a command.
+
+4. **What failure case did the test expose?**
+   Strings like `../x`, `a;rm`, and `$(x)` are rejected as IDs, and `ffmpegArgs`, `path`, `src`, and `url` are rejected as keys. One design issue surfaced while writing the cases: if a caller could supply a video clip's `durationMs`, it could disagree with the source range and speed, so new video clips do not accept it at all.
+
+5. **How would I diagnose it without Claude?**
+   - `editOperationSchema.safeParse(value)` and read `error.issues`.
+   - An issue at path `op` means the operation name is not allowlisted.
+   - `unrecognized_keys` names the extra field.
+   - `npm test -- operations` runs only these tests.
+
+6. **What did I personally inspect, change, or test?**
+   Nothing yet. This task was completed overnight under my delegation and is waiting for my review.

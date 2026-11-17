@@ -15,7 +15,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-101 | done | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
 | KNAR-102 | done | M1 | Structural Composition schemas v1 | KNAR-101 |
 | KNAR-103 | done | M1 | Semantic Composition validation | KNAR-102 |
-| KNAR-104 | ready | M1 | EditOperation v1 schema | KNAR-102 |
+| KNAR-104 | done | M1 | EditOperation v1 schema | KNAR-102 |
 | KNAR-105 | ready | M1 | Pure atomic operation reducer | KNAR-103, KNAR-104 |
 | KNAR-106 | ready | M1 | Schema version and migration boundary | KNAR-102 |
 | KNAR-201 | planned | M2 | Deterministic render compiler | M1 |
@@ -235,7 +235,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-104 — EditOperation v1 schema
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-102
 - Owner/session: lead
@@ -248,7 +248,15 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: one valid case per op; unknown op; extra keys; malicious ID strings.
 - Verification commands: `cd backend && npm test -- operations`
 - Learning checkpoint: explain how this schema enforces invariant 4 before any LLM exists.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `bf514d5`):
+  - `npm run typecheck`: exit 0. `npm test -- operations`: 55 tests passed. `npm test`: 4 files, 157 tests passed.
+  - `editOperationSchema` is a discriminated union on `op` with exactly the nine v1 operations; a test asserts the list and that `splitClip` is absent.
+  - Every operation has a valid case. Unknown `op` values (`splitClip`, `addTransition`, `runCommand`, empty, wrong case) fail at path `op`.
+  - Every operation rejects an extra key (`unrecognized_keys`), and nested clips reject `path`, `src`, and `url`.
+  - ID fields reuse the kernel ID schema; `../x`, `a;rm`, `$(x)`, `a/b`, a Windows path, a space, backticks, a pipe, and the empty string are rejected for `clipId`, new clip `id`, and `assetId`.
+  - Decisions made here: new video clips carry no `durationMs` (the reducer derives it); `removeClip` targets a clip on either track; `setBackgroundAudio` carries one audio clip or `null` to clear the track; a batch (`editOperationsSchema`) holds 1 to 200 operations.
+  - Frontend checks omitted: the kernel is not yet imported by the server or the frontend.
+  - Manual review pending: completed and committed by the agent overnight under Mustapha's delegation of 2026-11-17.
 
 ### KNAR-105 — Pure atomic operation reducer
 
