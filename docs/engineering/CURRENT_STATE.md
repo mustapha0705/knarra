@@ -1,6 +1,6 @@
 # Current State
 
-Last verified: 2026-11-17 at commit `93a1f3d` plus the KNAR-003 documentation changes (no product code changed).
+Last verified: 2026-11-17 at commit `8696131` plus the KNAR-101 changes (branch `feat/composition-kernel`).
 
 This document records what genuinely exists. Update it whenever a task changes what is implemented, stubbed, or absent.
 
@@ -16,7 +16,8 @@ This document records what genuinely exists. Update it whenever a task changes w
 ## Repository Layout
 
 - `frontend/`: React 19, TypeScript 6, Vite 8. Standalone npm project.
-- `backend/`: Express 5, plain JavaScript ESM (`"type": "module"`). Standalone npm project.
+- `backend/`: Express 5, JavaScript ESM (`"type": "module"`) with a TypeScript toolchain alongside it (TypeScript 7, Vitest 5, Zod 4, tsx; KNAR-101). Runtime code is still JavaScript. Standalone npm project.
+- `backend/src/domain/composition/` holds only a toolchain smoke test; the kernel starts in KNAR-102.
 - No root `package.json`, no workspaces, no shared types package, no root `.gitignore`.
 - `backend/src/{config,controllers,middleware,routes}` exist on disk but are empty and untracked.
 
@@ -50,9 +51,9 @@ This document records what genuinely exists. Update it whenever a task changes w
 
 - Persistence: no database, migrations, project storage, uploads, or storage layout.
 - Server-side ffprobe, progress reporting, cancellation, job state, partial-output cleanup on success paths.
-- Tests: no runner, no test files, no fixtures.
-- Zod or any runtime schema validation.
-- Backend TypeScript, backend linting, CI, pre-commit hooks, Prettier, `.editorconfig`.
+- Tests: the backend has Vitest and one smoke test only; no kernel tests or fixtures yet. The frontend has no test runner.
+- Runtime schema validation: Zod is installed, but no schema is used by product code.
+- Backend TypeScript source (toolchain only so far), `@types/node`, backend linting, CI, pre-commit hooks, Prettier, `.editorconfig`.
 - `.env.example`, configuration loading (port is hardcoded `3001`), structured logging.
 - Python media intelligence: no code yet (planned for M9, ADR 0007). Python 3.14.2 is installed on the development machine.
 
@@ -64,7 +65,8 @@ This document records what genuinely exists. Update it whenever a task changes w
 | `npx tsc -p tsconfig.node.json --noEmit` (frontend) | Pass, 0 errors |
 | `npx eslint .` (frontend) | Pass, 0 problems |
 | `npm run build` (frontend) | Not run during audit (writes `dist/`); a prior build exists |
-| Backend tests / type-check | Not available |
+| `npm run typecheck` (backend, 2026-11-17) | Pass, 0 errors |
+| `npm test` (backend, 2026-11-17) | Pass, 2 tests |
 
 ## Known Defects
 

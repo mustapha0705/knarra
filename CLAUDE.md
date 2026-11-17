@@ -58,5 +58,10 @@ Frontend (`frontend/`):
 Backend (`backend/`):
 - Install: `npm install`
 - Dev server: `npm run dev` (port 3001; requires `ffmpeg` and `ffprobe` on PATH)
+- Type-check: `npm run typecheck` (`tsc --noEmit`; TypeScript files are strict, existing JavaScript is allowed but not checked)
+- Unit tests: `npm test` (Vitest, `src/**/*.test.ts`); one area: `npm test -- <name>`, for example `npm test -- schema`
+- M1 verification: `npm run typecheck && npm test`
 
-Not yet available: unit tests, integration tests, backend type-check, migrations, render fixtures. KNAR-101 and later tasks add them and must update this section.
+Backend commands verified on 2026-11-17 (KNAR-101: TypeScript 7.0.2, Vitest 5.1.0, Zod 4.6.7, tsx 4.23.15).
+
+Not yet available: frontend tests, integration tests, backend lint, migrations, render fixtures. Later tasks add them and must update this section.

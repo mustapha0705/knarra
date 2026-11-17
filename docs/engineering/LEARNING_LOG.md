@@ -94,3 +94,29 @@ At the end of each milestone, explain the data flow on paper or in your own word
 
 6. **What did I personally inspect, change, or test?**
    I approved the plan, chose the temporary upload for KNAR-302 and a new ADR instead of editing accepted ones, and removed the final diff-summary step from the completion sequence.
+
+---
+
+## KNAR-101 — Backend TypeScript toolchain (2026-11-17)
+
+1. **What problem does this layer solve?**
+   The Composition kernel needs strong static types and a test runner, but the backend was plain JavaScript with neither. This task adds TypeScript, Vitest, and Zod next to the existing JavaScript, so the kernel can be written and tested without converting `server.js` first.
+
+2. **What inputs and outputs cross its boundary?**
+   Input: source files under `backend/src`. Output: two verdicts and nothing else. `npm run typecheck` reads the files and reports type errors; `noEmit` means it never writes JavaScript. `npm test` runs `src/**/*.test.ts`. The running server is untouched: `npm run dev` still starts `src/server.js` with Node directly.
+
+3. **What invariant does it protect?**
+   It prepares invariant 5 (structural and semantic validation before state changes). `strict` rejects implicit `any` and unchecked `null`/`undefined`. `noUncheckedIndexedAccess` makes `clips[0]` a `Clip | undefined`, which matters for a kernel that indexes into clip arrays. Types disappear at runtime, so untrusted JSON (a saved project, a request body, model output) still needs a runtime schema; Zod provides that, and types are derived from the schemas so the two cannot drift.
+
+4. **What failure case did the test expose?**
+   A passing type-check proves little by itself, so a temporary file that assigned `xs[0]` to a `number` was added; it failed with `TS2322`, showing the strict option is really on. The dev-server check found port 3001 already in use, the same trap as KNAR-001; the process was identified as this repository's own nodemon before trusting its responses.
+
+5. **How would I diagnose it without Claude?**
+   - `npx tsc --noEmit --listFilesOnly` shows which files the type-check actually covers.
+   - `npx tsc --showConfig` prints the effective compiler options.
+   - Write one deliberately wrong line and confirm the type-check fails.
+   - `npm test -- <name>` runs only matching test files.
+   - `netstat -ano | findstr :3001`, then look up the PID, to see which server is answering.
+
+6. **What did I personally inspect, change, or test?**
+   I ran the manual checklist (`npm run typecheck`, `npm test`, and Export in the browser) and confirmed it works.

@@ -12,7 +12,7 @@ Statuses: `ready | in-progress | blocked | review | done | planned`.
 | KNAR-001 | done | M0 | Make the spike reproducible from Git | KNAR-000 |
 | KNAR-002 | done | M0 | Planning documents | KNAR-000 |
 | KNAR-003 | done | M0 | Add staged frontend integration checkpoints | KNAR-002 |
-| KNAR-101 | ready | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
+| KNAR-101 | done | M1 | Backend TypeScript toolchain | KNAR-001, KNAR-002 |
 | KNAR-102 | ready | M1 | Structural Composition schemas v1 | KNAR-101 |
 | KNAR-103 | ready | M1 | Semantic Composition validation | KNAR-102 |
 | KNAR-104 | ready | M1 | EditOperation v1 schema | KNAR-102 |
@@ -155,7 +155,7 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 
 ### KNAR-101 — Backend TypeScript toolchain
 
-- Status: ready
+- Status: done
 - Milestone: M1
 - Depends on: KNAR-001, KNAR-002
 - Owner/session: lead
@@ -170,7 +170,16 @@ M1 verification command (created by KNAR-101): `cd backend && npm run typecheck 
 - Required tests: smoke test that imports `zod` and runs under Vitest.
 - Verification commands: `cd backend && npm run typecheck && npm test`
 - Learning checkpoint: explain what `strict` and `noUncheckedIndexedAccess` catch, and why the kernel needs a runtime schema in addition to TypeScript types.
-- Completion evidence: (to be filled)
+- Completion evidence (2026-11-17, branch `feat/composition-kernel`, against base `8696131`):
+  - Installed `zod` 4.6.7 (dependency) and `typescript` 7.0.2, `tsx` 4.23.15, `vitest` 5.1.0 (dev dependencies). No other dependency added.
+  - `backend/tsconfig.json` sets `strict`, `noUncheckedIndexedAccess`, `allowJs`, `module`/`moduleResolution` `NodeNext`, and `noEmit`. `checkJs` is off, so existing JavaScript is included but not type-checked.
+  - `npm run typecheck` (`tsc --noEmit`): exit 0. `tsc --listFilesOnly` covers `src/server.js`, `ffmpeg-practice/render.js`, `smoke.test.ts`, and `vitest.config.ts`.
+  - Negative check: a temporary file assigning `xs[0]` of a `number[]` to `number` failed with `TS2322` (`number | undefined`), proving `noUncheckedIndexedAccess` is active; the file was removed.
+  - `npm test` (`vitest run`): 1 file, 2 tests passed (`src/domain/composition/smoke.test.ts` imports `zod`).
+  - `npm run dev` unchanged: against the running nodemon instance (confirmed to be this repository's `src/server.js`, restarted after the `package.json` change), `GET /` returned 200 and `POST /api/demo-render` returned 200 `video/mp4`; ffprobe showed H.264 1080x1920 + AAC, duration 8.000000. `server.js` and `ffmpeg-practice/` are unmodified.
+  - Frontend checks omitted: no frontend file and no contract the frontend consumes changed.
+  - Manual: Mustapha ran the checklist (`npm run typecheck`, `npm test`, Export in the browser) and confirmed it works.
+  - Notes carried forward: npm resolved TypeScript 7 while the frontend uses TypeScript 6; `@types/node` is not installed and needs approval in the first task whose TypeScript uses Node APIs; `tsx` is installed but unused until `server.js` is converted; `npm audit` reported findings that were not changed here.
 
 ### KNAR-102 — Structural Composition schemas v1
 
